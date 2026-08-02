@@ -36,9 +36,9 @@ export function computeMoonInfo(date, landmark) {
   };
 }
 
-export function renderMoonPanel(container, info, landmarkName) {
+export function renderMoonPanel(container, info) {
   container.innerHTML = `
-    <h2 class="panel-title">Moon over ${escapeHtml(landmarkName)}</h2>
+    <h2 class="panel-title">Moon Specs</h2>
 
     <div class="panel-row panel-row--phase">
       <span class="panel-phase-name">${info.phaseName}</span>
@@ -62,21 +62,10 @@ export function renderMoonPanel(container, info, landmarkName) {
   `;
 }
 
-export function renderPathStatus(container, points, windowStart, windowEnd) {
-  const el = container.querySelector('.panel-path-status') || document.createElement('p');
-  el.className = 'panel-path-status';
-
+export function renderPathStatus(el, points, windowStart, windowEnd) {
   if (points.length === 0) {
     el.textContent = `No valid alignment found between ${fmtDateTime(windowStart)} and ${fmtDateTime(windowEnd)} within the max distance — try widening it or picking a different time.`;
   } else {
     el.textContent = `${points.length} alignment points from ${fmtDateTime(points[0].time)} to ${fmtDateTime(points[points.length - 1].time)}.`;
   }
-
-  if (!el.parentElement) container.appendChild(el);
-}
-
-function escapeHtml(s) {
-  const div = document.createElement('div');
-  div.textContent = s;
-  return div.innerHTML;
 }

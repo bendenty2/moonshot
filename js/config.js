@@ -22,9 +22,9 @@ export const DEFAULT_TARGET_HEIGHT_FT = 1900;
 // at sea level (see brief section 6) rather than looking up local ground elevation.
 export const OBSERVER_ELEVATION_M = 0;
 
-// How far from the landmark we'll search for a valid alignment point, in miles.
+// How far from the landmark we'll search for a valid alignment point, in km.
 // Configurable rather than hardcoded — exposed as a control-bar input.
-export const DEFAULT_MAX_DISTANCE_MI = 5;
+export const DEFAULT_MAX_DISTANCE_KM = 8;
 
 // Sampling step for walking the alignment path across the search window.
 export const PATH_STEP_MINUTES = 2;
@@ -33,12 +33,21 @@ export const PATH_STEP_MINUTES = 2;
 export const LIVE_REFRESH_MS = 60_000;
 
 export const FEET_PER_METER = 3.28084;
-export const METERS_PER_MILE = 1609.344;
+export const METERS_PER_KM = 1000;
 
 export function feetToMeters(ft) {
   return ft / FEET_PER_METER;
 }
 
-export function milesToMeters(mi) {
-  return mi * METERS_PER_MILE;
+export function metersToFeet(m) {
+  return m * FEET_PER_METER;
+}
+
+export function kmToMeters(km) {
+  return km * METERS_PER_KM;
+}
+
+// Converts a target-height value in the given display unit ('ft' | 'm') to meters.
+export function heightToMeters(value, unit) {
+  return unit === 'ft' ? feetToMeters(value) : value;
 }

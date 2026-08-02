@@ -15,7 +15,11 @@
 </head>
 <body>
 
-  <header class="controlbar">
+  <header class="topbar">
+    <span class="topbar-brand">Moonshot</span>
+  </header>
+
+  <div class="controlbar">
     <div class="controlbar-group controlbar-search">
       <input id="location-search" type="text" placeholder="Search for a landmark or address…" autocomplete="off" />
       <ul id="search-results" class="search-results" hidden></ul>
@@ -24,26 +28,59 @@
     <div class="controlbar-group controlbar-numeric">
       <label for="target-height">Target height</label>
       <input id="target-height" type="number" min="0" step="10" />
-      <span class="unit">ft</span>
+      <button id="height-unit" class="unit-toggle" type="button">ft</button>
     </div>
 
     <div class="controlbar-group controlbar-numeric">
       <label for="max-distance">Max distance</label>
       <input id="max-distance" type="number" min="0.1" step="0.5" />
-      <span class="unit">mi</span>
+      <span class="unit">km</span>
     </div>
 
     <div class="controlbar-group controlbar-time">
       <button id="time-now" class="time-btn is-active" type="button">Now</button>
       <button id="time-fullmoon" class="time-btn" type="button">Next Full Moon</button>
-      <input id="time-custom" class="time-custom" type="datetime-local" />
+      <div class="date-picker">
+        <button id="time-custom-btn" class="time-btn" type="button">Custom Date</button>
+        <div id="date-picker-popover" class="date-picker-popover" hidden>
+          <div class="date-picker-header">
+            <button type="button" class="date-nav" data-nav="prev-year" aria-label="Previous year">&laquo;</button>
+            <button type="button" class="date-nav" data-nav="prev-month" aria-label="Previous month">&lsaquo;</button>
+            <span id="date-picker-label" class="date-picker-label"></span>
+            <button type="button" class="date-nav" data-nav="next-month" aria-label="Next month">&rsaquo;</button>
+            <button type="button" class="date-nav" data-nav="next-year" aria-label="Next year">&raquo;</button>
+          </div>
+          <div id="date-picker-weekdays" class="date-picker-weekdays"></div>
+          <div id="date-picker-days" class="date-picker-days"></div>
+        </div>
+      </div>
     </div>
-  </header>
+  </div>
 
   <main class="layout">
     <div id="map" class="map-pane" aria-label="Alignment map"></div>
-    <aside id="moon-panel" class="panel-pane" aria-label="Moon information"></aside>
+    <aside class="panel-pane" aria-label="Moon information">
+      <div id="moon-panel"></div>
+
+      <div class="path-bounds">
+        <h3 class="path-bounds-title">Path window</h3>
+        <div class="path-bounds-row">
+          <label for="path-start">Start</label>
+          <input id="path-start" type="time" />
+        </div>
+        <div class="path-bounds-row">
+          <label for="path-end">End</label>
+          <input id="path-end" type="time" />
+        </div>
+        <p id="path-status" class="panel-path-status"></p>
+      </div>
+    </aside>
   </main>
+
+  <footer class="site-footer">
+    <span class="footer-version">v1.1.1</span>
+    <small>&copy; <span id="footer-year">2026</span> Benjamin d'Entremont. All rights reserved.</small>
+  </footer>
 
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.27.0/mapbox-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>

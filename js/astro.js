@@ -45,6 +45,50 @@ export function nextMoonRiseSet(date, observer, limitDays = 3) {
   return { rise: rise ? rise.date : null, set: set ? set.date : null };
 }
 
+// The most recent moonrise at or before `beforeDate`. Astronomy Engine only
+// searches forward, so this steps forward through consecutive rises from a
+// safe lookback point and keeps the last one that doesn't overshoot —
+// necessary because the moon can rise and set more than once within a single
+// ~40h lookback window (a naive single forward search from the lookback
+// point would return the *earliest* rise in range, not the most recent).
+function mostRecentRiseAtOrBefore(beforeDate, observer, limitDays) {
+  let searchFrom = new Date(beforeDate.getTime() - 40 * 60 * 60 * 1000);
+  let best = null;
+  for (let i = 0; i < 4; i++) {
+    const rise = Astronomy.SearchRiseSet(Astronomy.Body.Moon, observer, +1, searchFrom, limitDays);
+    if (!rise || rise.date > beforeDate) break;
+    best = rise;
+    searchFrom = new Date(rise.date.getTime() + 60_000);
+  }
+  return best;
+}
+
+// The single continuous moon-up interval bracketing `refDate` (if the moon is
+// up right then) or the next one after it (if the moon is currently down).
+// This is the natural "moonrise to moonset" window used as the default
+// alignment-path bounds for every time mode.
+export function moonUpWindow(refDate, observer) {
+  const { altitude } = moonHorizontal(refDate, observer);
+  const SEARCH_LIMIT_DAYS = 2;
+
+  if (altitude > 0) {
+    // Moon is up now: find the most recent rise that started this interval,
+    // and the set that will end it.
+    const rise = mostRecentRiseAtOrBefore(refDate, observer, SEARCH_LIMIT_DAYS);
+    const set = Astronomy.SearchRiseSet(Astronomy.Body.Moon, observer, -1, refDate, SEARCH_LIMIT_DAYS);
+    if (rise && set) return { start: rise.date, end: set.date };
+  } else {
+    // Moon is down: find the next rise, then the set that follows it.
+    const rise = Astronomy.SearchRiseSet(Astronomy.Body.Moon, observer, +1, refDate, SEARCH_LIMIT_DAYS);
+    if (rise) {
+      const set = Astronomy.SearchRiseSet(Astronomy.Body.Moon, observer, -1, rise.date, SEARCH_LIMIT_DAYS);
+      if (set) return { start: rise.date, end: set.date };
+    }
+  }
+
+  return null; // moon doesn't rise/set within the search window (e.g. extreme latitude)
+}
+
 function nextQuarter(date, targetQuarter, maxSteps = 4) {
   let mq = Astronomy.SearchMoonQuarter(date);
   for (let i = 0; i < maxSteps && mq.quarter !== targetQuarter; i++) {
