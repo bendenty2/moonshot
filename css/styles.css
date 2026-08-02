@@ -291,6 +291,15 @@ body {
   display: flex;
 }
 
+.sidebar-pane {
+  /* Placeholder for future tools — half the width of the right panel. */
+  flex: 0.5 1 0;
+  min-width: 140px;
+  max-width: 210px;
+  background: #000000;
+  border-right: 1px solid var(--border);
+}
+
 .map-pane {
   flex: 2 1 0;
   min-width: 0;
@@ -400,12 +409,17 @@ body {
   line-height: 1.5;
 }
 
-/* ===== Map hover popup =====
-   Mapbox's default popup is a white card with dark text; our page's own
-   (near-white) text color was cascading into it, washing out the contrast.
-   Give it explicit dark-theme colors matching the rest of the app. */
+/* ===== Map hover tooltip =====
+   A plain DOM element that follows the raw cursor position over the path
+   (rather than Mapbox's Popup, which anchors to a lngLat and re-projects on
+   every frame) — simpler and gives snappier direct cursor-following. */
 
-.mapboxgl-popup-content {
+.path-hover-tooltip {
+  position: absolute;
+  display: none;
+  pointer-events: none;
+  transform: translate(14px, 14px);
+  z-index: 40;
   background: var(--card-bg);
   color: var(--text);
   font-size: 12px;
@@ -413,14 +427,7 @@ body {
   padding: 8px 10px;
   border-radius: 6px;
   border: 1px solid var(--border);
-  box-shadow: none;
-}
-
-.mapboxgl-popup-tip {
-  border-top-color: var(--card-bg) !important;
-  border-bottom-color: var(--card-bg) !important;
-  border-left-color: var(--card-bg) !important;
-  border-right-color: var(--card-bg) !important;
+  white-space: nowrap;
 }
 
 /* ===== Footer ===== */
@@ -456,6 +463,10 @@ body {
 @media (max-width: 720px) {
   .layout {
     flex-direction: column;
+  }
+  .sidebar-pane {
+    /* Placeholder-only for now — not worth the space on narrow screens. */
+    display: none;
   }
   .map-pane {
     height: 60vh;

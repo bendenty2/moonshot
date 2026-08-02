@@ -38,7 +38,7 @@ export function computeMoonInfo(date, landmark) {
 
 export function renderMoonPanel(container, info) {
   container.innerHTML = `
-    <h2 class="panel-title">Moon Specs</h2>
+    <h2 class="panel-title">Live Moon Info</h2>
 
     <div class="panel-row panel-row--phase">
       <span class="panel-phase-name">${info.phaseName}</span>
