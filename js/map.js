@@ -14,7 +14,7 @@ export function createMap(containerId, { token, style, center }) {
     center: [center.lon, center.lat],
     zoom: 15,
   });
-  map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+  map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
 
   const ready = new Promise((resolve) => map.on('load', resolve));
   return { map, ready };
