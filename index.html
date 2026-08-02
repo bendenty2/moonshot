@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Moonshot</title>
+  <meta name="description" content="Find exactly when and where to stand for a moon-behind-landmark photo." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%23ffcc66%22/></svg>" />
+
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.27.0/mapbox-gl.css" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <header class="controlbar">
+    <div class="controlbar-group controlbar-search">
+      <input id="location-search" type="text" placeholder="Search for a landmark or address…" autocomplete="off" />
+      <ul id="search-results" class="search-results" hidden></ul>
+    </div>
+
+    <div class="controlbar-group controlbar-numeric">
+      <label for="target-height">Target height</label>
+      <input id="target-height" type="number" min="0" step="10" />
+      <span class="unit">ft</span>
+    </div>
+
+    <div class="controlbar-group controlbar-numeric">
+      <label for="max-distance">Max distance</label>
+      <input id="max-distance" type="number" min="0.1" step="0.5" />
+      <span class="unit">mi</span>
+    </div>
+
+    <div class="controlbar-group controlbar-time">
+      <button id="time-now" class="time-btn is-active" type="button">Now</button>
+      <button id="time-fullmoon" class="time-btn" type="button">Next Full Moon</button>
+      <input id="time-custom" class="time-custom" type="datetime-local" />
+    </div>
+  </header>
+
+  <main class="layout">
+    <div id="map" class="map-pane" aria-label="Alignment map"></div>
+    <aside id="moon-panel" class="panel-pane" aria-label="Moon information"></aside>
+  </main>
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.27.0/mapbox-gl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
