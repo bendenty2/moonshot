@@ -4,9 +4,13 @@
 
 const PATH_SOURCE_ID = 'alignment-path';
 const ARROWS_SOURCE_ID = 'alignment-arrows';
+const TIMESTAMPS_SOURCE_ID = 'alignment-timestamps';
 const HIT_LAYER_ID = 'alignment-path-hit';
 const LINE_LAYER_ID = 'alignment-path-line';
 const ARROWS_LAYER_ID = 'alignment-arrows-symbol';
+const TIMESTAMPS_LAYER_ID = 'alignment-timestamps-symbol';
+
+const LABEL_INTERVAL_MIN = 10;
 
 const DEG = Math.PI / 180;
 const RAD = 180 / Math.PI;
@@ -52,10 +56,16 @@ export function onMapClick(map, handler) {
 function formatTooltipTime(date) {
   return date.toLocaleString(undefined, {
     weekday: 'short',
+    month: 'short',
+    day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
     second: '2-digit',
   });
+}
+
+function formatLabelTime(date) {
+  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
 function bearingBetween(a, b) {
@@ -100,6 +110,43 @@ function arrowsToGeoJSON(points) {
       properties: { rotate: (bearing - 90 + 360) % 360 },
     };
   });
+
+  return { type: 'FeatureCollection', features };
+}
+
+// Permanent (always-visible, not just on hover) labels on true round
+// clock-time marks (e.g. 11:30, 11:40, 11:50 — not offsets from wherever the
+// path happens to start, like the moon's exact moonrise second). The path's
+// own samples are fixed 2-min steps from an arbitrary start instant, so they
+// essentially never land exactly on a round mark — for each candidate mark
+// within the path's span, this picks whichever sample is closest to it and
+// labels that point with the *rounded* time text, not the sample's own
+// (slightly off) exact time.
+function timestampLabelsToGeoJSON(points) {
+  if (points.length === 0) return { type: 'FeatureCollection', features: [] };
+
+  const intervalMs = LABEL_INTERVAL_MIN * 60 * 1000;
+  const firstMark = Math.ceil(points[0].time.getTime() / intervalMs) * intervalMs;
+  const lastMark = Math.floor(points[points.length - 1].time.getTime() / intervalMs) * intervalMs;
+
+  const features = [];
+  let searchIdx = 0;
+
+  for (let mark = firstMark; mark <= lastMark; mark += intervalMs) {
+    // Advance to the sample straddling this mark, then pick whichever of
+    // that sample or the previous one is actually closer.
+    while (searchIdx < points.length - 1 && points[searchIdx + 1].time.getTime() < mark) searchIdx++;
+    const candidates = [points[searchIdx], points[Math.min(searchIdx + 1, points.length - 1)]];
+    const closest = candidates.reduce((best, p) =>
+      Math.abs(p.time.getTime() - mark) < Math.abs(best.time.getTime() - mark) ? p : best
+    );
+
+    features.push({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [closest.lon, closest.lat] },
+      properties: { label: formatLabelTime(new Date(mark)) },
+    });
+  }
 
   return { type: 'FeatureCollection', features };
 }
@@ -169,23 +216,27 @@ function wireHover(map) {
   });
 }
 
-// Adds the path/arrow layers on first call, updates their data on later calls.
+// Adds the path/arrow/timestamp layers on first call, updates their data on later calls.
 export function renderAlignmentPath(map, points) {
   currentPoints = points;
   const lineData = pathToGeoJSON(points);
   const arrowData = arrowsToGeoJSON(points);
+  const timestampData = timestampLabelsToGeoJSON(points);
 
   const lineSource = map.getSource(PATH_SOURCE_ID);
   const arrowSource = map.getSource(ARROWS_SOURCE_ID);
+  const timestampSource = map.getSource(TIMESTAMPS_SOURCE_ID);
 
-  if (lineSource && arrowSource) {
+  if (lineSource && arrowSource && timestampSource) {
     lineSource.setData(lineData);
     arrowSource.setData(arrowData);
+    timestampSource.setData(timestampData);
     return;
   }
 
   map.addSource(PATH_SOURCE_ID, { type: 'geojson', data: lineData });
   map.addSource(ARROWS_SOURCE_ID, { type: 'geojson', data: arrowData });
+  map.addSource(TIMESTAMPS_SOURCE_ID, { type: 'geojson', data: timestampData });
 
   // Wide, invisible line purely to give the thin visible line a forgiving hover hit-area.
   map.addLayer({
@@ -218,6 +269,29 @@ export function renderAlignmentPath(map, points) {
       'text-allow-overlap': true,
       'text-ignore-placement': true,
       'text-keep-upright': false,
+    },
+    paint: {
+      'text-color': '#ffffff',
+      'text-halo-color': '#000000',
+      'text-halo-width': 1,
+    },
+  });
+
+  map.addLayer({
+    id: TIMESTAMPS_LAYER_ID,
+    type: 'symbol',
+    source: TIMESTAMPS_SOURCE_ID,
+    layout: {
+      'text-field': ['get', 'label'],
+      // Smoothly scales with zoom instead of jumping between fixed sizes.
+      'text-size': ['interpolate', ['linear'], ['zoom'], 10, 8, 14, 11, 18, 15],
+      'text-anchor': 'top',
+      'text-offset': [0, 0.6],
+      // Let Mapbox's own label collision handling thin these out when
+      // zoomed out (rather than every-10-min label overlapping into an
+      // unreadable jumble), and reveal more of them as you zoom in.
+      'text-allow-overlap': false,
+      'text-ignore-placement': false,
     },
     paint: {
       'text-color': '#ffffff',

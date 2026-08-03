@@ -5,6 +5,7 @@ import {
   DEFAULT_TARGET_HEIGHT_FT,
   DEFAULT_MAX_DISTANCE_KM,
   PATH_STEP_MINUTES,
+  PANEL_REFRESH_MS,
   LIVE_REFRESH_MS,
   heightToMeters,
   metersToFeet,
@@ -13,9 +14,9 @@ import {
 import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js';
 import { computeAlignmentPath } from './alignment.js';
 import { createMap, addLandmarkMarker, onMapClick, renderAlignmentPath, geocode } from './map.js';
-import { computeMoonInfo, renderMoonPanel, renderPathStatus, formatExactTime } from './panel.js';
+import { computeMoonInfo, renderMoonPanel } from './panel.js';
 import { createDatePicker } from './datepicker.js';
-import { loadFavourites, addFavourite, renameFavourite, removeFavourite, renderFavourites } from './favourites.js';
+import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js';
 
 const state = {
   landmark: { ...DEFAULT_LANDMARK },
@@ -26,13 +27,13 @@ const state = {
   customDate: null,
   pathStart: null,
   pathEnd: null,
-  pathBoundsCustomized: false,
   favourites: loadFavourites(),
-  locationLocked: false,
+  // The favourite (if any) that the current landmark + target height were
+  // just loaded from — drives the star's filled/unfilled state.
+  activeFavouriteId: null,
 };
 
 const panelEl = document.getElementById('moon-panel');
-const pathStatusEl = document.getElementById('path-status');
 const searchInput = document.getElementById('location-search');
 const searchResultsEl = document.getElementById('search-results');
 const heightInput = document.getElementById('target-height');
@@ -41,11 +42,8 @@ const distanceInput = document.getElementById('max-distance');
 const nowBtn = document.getElementById('time-now');
 const fullMoonBtn = document.getElementById('time-fullmoon');
 const customBtn = document.getElementById('time-custom-btn');
-const pathStartInput = document.getElementById('path-start');
-const pathEndInput = document.getElementById('path-end');
 const footerYearEl = document.getElementById('footer-year');
-const lockToggle = document.getElementById('lock-location-toggle');
-const setFavouriteBtn = document.getElementById('set-favourite-btn');
+const favouriteStarBtn = document.getElementById('favourite-star-btn');
 const favouritesListEl = document.getElementById('favourites-list');
 
 heightInput.value = state.targetHeightValue;
@@ -69,23 +67,6 @@ function debounce(fn, ms) {
   };
 }
 
-function pad2(n) {
-  return String(n).padStart(2, '0');
-}
-
-function toTimeInputValue(date) {
-  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
-}
-
-// Reapplies just the HH:MM from a "HH:MM" string onto originalDate's own
-// calendar day, so narrowing the time doesn't change which day it's on.
-function applyTimeToDate(originalDate, timeStr) {
-  const [h, m] = timeStr.split(':').map(Number);
-  const d = new Date(originalDate);
-  d.setHours(h, m, 0, 0);
-  return d;
-}
-
 function formatPickedDate(date) {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
@@ -104,11 +85,6 @@ function fallbackWindow(refDate) {
   return { start: new Date(refDate.getTime() - HALF_DAY_MS), end: new Date(refDate.getTime() + HALF_DAY_MS) };
 }
 
-function syncPathBoundsInputs() {
-  pathStartInput.value = toTimeInputValue(state.pathStart);
-  pathEndInput.value = toTimeInputValue(state.pathEnd);
-}
-
 function updatePanel() {
   const info = computeMoonInfo(new Date(), state.landmark);
   renderMoonPanel(panelEl, info);
@@ -124,31 +100,38 @@ function updatePath() {
     stepMinutes: PATH_STEP_MINUTES,
   });
   renderAlignmentPath(map, points);
-  renderPathStatus(pathStatusEl, points, state.pathStart, state.pathEnd);
 }
 
 // Recomputes the natural moonrise-to-moonset window for the current landmark
-// + time mode, resets any manual start/end narrowing, and redraws the path.
+// + time mode, and redraws the path.
 function recomputeNaturalWindow() {
   const observer = makeObserver(state.landmark.lat, state.landmark.lon, 0);
   const refDate = getReferenceDate();
   const window = moonUpWindow(refDate, observer) || fallbackWindow(refDate);
   state.pathStart = window.start;
   state.pathEnd = window.end;
-  state.pathBoundsCustomized = false;
-  syncPathBoundsInputs();
   updatePath();
 }
 
-function setLandmark(landmark, { flyTo = false } = {}) {
+function setLandmark(landmark, { flyTo = false, fromFavourite = false } = {}) {
   state.landmark = landmark;
   marker.setLngLat([landmark.lon, landmark.lat]);
   if (flyTo) map.flyTo({ center: [landmark.lon, landmark.lat], zoom: Math.max(map.getZoom(), 14) });
+  if (!fromFavourite) {
+    state.activeFavouriteId = null;
+    updateStarUI();
+  }
   updatePanel();
   recomputeNaturalWindow();
 }
 
 // ----- favourites -----
+
+function updateStarUI() {
+  const active = state.activeFavouriteId !== null;
+  favouriteStarBtn.textContent = active ? '★' : '☆'; // filled / outline star
+  favouriteStarBtn.classList.toggle('is-active', active);
+}
 
 function refreshFavouritesUI() {
   renderFavourites(favouritesListEl, state.favourites, {
@@ -159,20 +142,27 @@ function refreshFavouritesUI() {
       state.heightUnit = fav.heightUnit;
       heightInput.value = fav.heightValue;
       heightUnitBtn.textContent = fav.heightUnit;
-      setLandmark({ name: fav.name, lat: fav.lat, lon: fav.lon }, { flyTo: true });
+      state.activeFavouriteId = id;
+      updateStarUI();
+      setLandmark({ name: fav.name, lat: fav.lat, lon: fav.lon }, { flyTo: true, fromFavourite: true });
     },
-    onRename: (id, name) => {
-      state.favourites = renameFavourite(state.favourites, id, name);
+    onEdit: (id, updates) => {
+      state.favourites = updateFavourite(state.favourites, id, updates);
       refreshFavouritesUI();
     },
     onRemove: (id) => {
       state.favourites = removeFavourite(state.favourites, id);
+      if (id === state.activeFavouriteId) {
+        state.activeFavouriteId = null;
+        updateStarUI();
+      }
       refreshFavouritesUI();
     },
   });
 }
 
-setFavouriteBtn.addEventListener('click', () => {
+favouriteStarBtn.addEventListener('click', () => {
+  if (state.activeFavouriteId !== null) return; // current state already matches a saved favourite
   state.favourites = addFavourite(state.favourites, {
     name: state.landmark.name || 'Favourite',
     lat: state.landmark.lat,
@@ -180,11 +170,9 @@ setFavouriteBtn.addEventListener('click', () => {
     heightValue: state.targetHeightValue,
     heightUnit: state.heightUnit,
   });
+  state.activeFavouriteId = state.favourites[state.favourites.length - 1].id;
+  updateStarUI();
   refreshFavouritesUI();
-});
-
-lockToggle.addEventListener('change', () => {
-  state.locationLocked = lockToggle.checked;
 });
 
 function activateNow() {
@@ -260,6 +248,8 @@ heightInput.addEventListener(
     const v = parseFloat(heightInput.value);
     if (Number.isFinite(v) && v >= 0) {
       state.targetHeightValue = v;
+      state.activeFavouriteId = null;
+      updateStarUI();
       updatePath();
     }
   }, 300)
@@ -273,6 +263,8 @@ heightUnitBtn.addEventListener('click', () => {
   state.targetHeightValue = Math.round(displayValue * (newUnit === 'ft' ? 1 : 10)) / (newUnit === 'ft' ? 1 : 10);
   heightInput.value = state.targetHeightValue;
   heightUnitBtn.textContent = newUnit;
+  state.activeFavouriteId = null;
+  updateStarUI();
   updatePath();
 });
 
@@ -301,22 +293,6 @@ createDatePicker({
   onSelect: (date) => activateCustom(date),
 });
 
-// ----- path window (start/end) overrides -----
-
-pathStartInput.addEventListener('change', () => {
-  if (!pathStartInput.value) return;
-  state.pathStart = applyTimeToDate(state.pathStart, pathStartInput.value);
-  state.pathBoundsCustomized = true;
-  updatePath();
-});
-
-pathEndInput.addEventListener('change', () => {
-  if (!pathEndInput.value) return;
-  state.pathEnd = applyTimeToDate(state.pathEnd, pathEndInput.value);
-  state.pathBoundsCustomized = true;
-  updatePath();
-});
-
 // ----- init -----
 
 ready.then(() => {
@@ -325,7 +301,6 @@ ready.then(() => {
   });
 
   onMapClick(map, (lonlat) => {
-    if (state.locationLocked) return;
     setLandmark({ name: 'Custom location', lat: lonlat.lat, lon: lonlat.lon });
   });
 
@@ -334,20 +309,19 @@ ready.then(() => {
 });
 
 refreshFavouritesUI();
+updateStarUI();
 
+// Panel data (phase, illumination, rise/set ordering, azimuth/altitude,
+// current time) ticks fast — it's cheap and reads as genuinely live.
+setInterval(updatePanel, PANEL_REFRESH_MS);
+
+// The path/window recompute is heavier and doesn't need second-by-second
+// updates (its natural bounds only change when the moon actually rises or
+// sets), so it stays on its own slower cadence.
 setInterval(() => {
-  updatePanel();
-  if (state.timeMode === 'now' && !state.pathBoundsCustomized) {
+  if (state.timeMode === 'now') {
     recomputeNaturalWindow();
   } else {
     updatePath();
   }
 }, LIVE_REFRESH_MS);
-
-// A proper ticking clock for the "Current time" row specifically — cheap
-// (no astronomy recompute), so it can run every second independent of the
-// slower LIVE_REFRESH_MS cycle that redoes the actual sky math.
-setInterval(() => {
-  const el = document.getElementById('panel-current-time');
-  if (el) el.textContent = formatExactTime(new Date());
-}, 1000);

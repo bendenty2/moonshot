@@ -27,8 +27,8 @@ export function addFavourite(list, fav) {
   return next;
 }
 
-export function renameFavourite(list, id, name) {
-  const next = list.map((f) => (f.id === id ? { ...f, name } : f));
+export function updateFavourite(list, id, updates) {
+  const next = list.map((f) => (f.id === id ? { ...f, ...updates } : f));
   saveFavourites(next);
   return next;
 }
@@ -45,36 +45,83 @@ function escapeHtml(s) {
   return div.innerHTML;
 }
 
-function startRename(li, id, currentName, onRename) {
-  const nameEl = li.querySelector('.favourite-name');
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'favourite-rename-input';
-  input.value = currentName;
-  nameEl.replaceWith(input);
-  input.focus();
-  input.select();
+// Replaces a favourite row's display button with an inline edit form
+// covering both the name and the target height + unit. Built via DOM APIs
+// (not template-string HTML) so arbitrary favourite names can never break
+// out of an attribute value.
+function startEdit(li, fav, onSave) {
+  const selectBtn = li.querySelector('.favourite-select');
+
+  const form = document.createElement('form');
+  form.className = 'favourite-edit-form';
+
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'favourite-rename-input';
+  nameInput.value = fav.name;
+
+  const heightRow = document.createElement('div');
+  heightRow.className = 'favourite-edit-height-row';
+
+  const heightInput = document.createElement('input');
+  heightInput.type = 'number';
+  heightInput.className = 'favourite-height-input';
+  heightInput.min = '0';
+  heightInput.step = '10';
+  heightInput.value = fav.heightValue;
+
+  const unitBtn = document.createElement('button');
+  unitBtn.type = 'button';
+  unitBtn.className = 'favourite-unit-toggle';
+  unitBtn.textContent = fav.heightUnit;
+
+  heightRow.append(heightInput, unitBtn);
+  form.append(nameInput, heightRow);
+  selectBtn.replaceWith(form);
+
+  let unit = fav.heightUnit;
+  unitBtn.addEventListener('click', () => {
+    unit = unit === 'ft' ? 'm' : 'ft';
+    unitBtn.textContent = unit;
+  });
+
+  nameInput.focus();
+  nameInput.select();
 
   let committed = false;
   const commit = () => {
     if (committed) return;
     committed = true;
-    const value = input.value.trim() || currentName;
-    onRename(id, value);
+    const name = nameInput.value.trim() || fav.name;
+    const heightValue = parseFloat(heightInput.value);
+    onSave(name, Number.isFinite(heightValue) ? heightValue : fav.heightValue, unit);
   };
 
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') input.blur();
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    commit();
+  });
+
+  form.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      committed = true; // discard — re-render will restore the original name
-      input.blur();
-      onRename(id, currentName);
+      // Revert the fields, then commit — nets out to a no-op save.
+      nameInput.value = fav.name;
+      heightInput.value = fav.heightValue;
+      unit = fav.heightUnit;
+      unitBtn.textContent = unit;
+      commit();
     }
   });
-  input.addEventListener('blur', commit);
+
+  // Clicking away from the whole form commits (not just leaving one field —
+  // moving focus between the name/height/unit inputs shouldn't count).
+  form.addEventListener('focusout', (e) => {
+    if (form.contains(e.relatedTarget)) return;
+    commit();
+  });
 }
 
-export function renderFavourites(container, list, { onSelect, onRename, onRemove }) {
+export function renderFavourites(container, list, { onSelect, onEdit, onRemove }) {
   if (list.length === 0) {
     container.innerHTML = '<li class="favourites-empty">No favourites yet.</li>';
     return;
@@ -88,7 +135,7 @@ export function renderFavourites(container, list, { onSelect, onRename, onRemove
         <span class="favourite-name">${escapeHtml(fav.name)}</span>
         <span class="favourite-meta">${fav.heightValue}${fav.heightUnit}</span>
       </button>
-      <button type="button" class="favourite-icon-btn" data-action="rename" aria-label="Rename favourite" title="Rename">&#9998;</button>
+      <button type="button" class="favourite-icon-btn" data-action="edit" aria-label="Edit favourite" title="Edit">&#9998;</button>
       <button type="button" class="favourite-icon-btn" data-action="remove" aria-label="Remove favourite" title="Remove">&times;</button>
     </li>`
     )
@@ -99,9 +146,9 @@ export function renderFavourites(container, list, { onSelect, onRename, onRemove
     const fav = list.find((f) => f.id === id);
 
     li.querySelector('[data-action="select"]').addEventListener('click', () => onSelect(id));
-    li.querySelector('[data-action="rename"]').addEventListener('click', (e) => {
+    li.querySelector('[data-action="edit"]').addEventListener('click', (e) => {
       e.stopPropagation();
-      startRename(li, id, fav.name, onRename);
+      startEdit(li, fav, (name, heightValue, heightUnit) => onEdit(id, { name, heightValue, heightUnit }));
     });
     li.querySelector('[data-action="remove"]').addEventListener('click', (e) => {
       e.stopPropagation();

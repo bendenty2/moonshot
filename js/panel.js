@@ -55,7 +55,30 @@ export function computeMoonInfo(date, landmark) {
   };
 }
 
+// Sorts a set of [label, date] rows chronologically (soonest first). Rows
+// with no date (null — e.g. the moon never rises/sets that day) sort last.
+function chronological(rows) {
+  return [...rows].sort((a, b) => {
+    if (!a[1]) return 1;
+    if (!b[1]) return -1;
+    return a[1] - b[1];
+  });
+}
+
+function factRow([label, date]) {
+  return `<div class="panel-fact"><dt>${label}</dt><dd>${fmtDateTime(date)}</dd></div>`;
+}
+
 export function renderMoonPanel(container, info) {
+  const riseSetRows = chronological([
+    ['Next moonrise', info.moonrise],
+    ['Next moonset', info.moonset],
+  ]);
+  const phaseRows = chronological([
+    ['Next full moon', info.nextFullMoon],
+    ['Next new moon', info.nextNewMoon],
+  ]);
+
   container.innerHTML = `
     <h2 class="panel-title">Live Moon Info</h2>
 
@@ -66,10 +89,8 @@ export function renderMoonPanel(container, info) {
 
     <dl class="panel-facts">
       <div class="panel-fact"><dt>Current time</dt><dd id="panel-current-time">${formatExactTime(info.now)}</dd></div>
-      <div class="panel-fact"><dt>Next moonrise</dt><dd>${fmtDateTime(info.moonrise)}</dd></div>
-      <div class="panel-fact"><dt>Next moonset</dt><dd>${fmtDateTime(info.moonset)}</dd></div>
-      <div class="panel-fact"><dt>Next full moon</dt><dd>${fmtDateTime(info.nextFullMoon)}</dd></div>
-      <div class="panel-fact"><dt>Next new moon</dt><dd>${fmtDateTime(info.nextNewMoon)}</dd></div>
+      ${riseSetRows.map(factRow).join('\n      ')}
+      ${phaseRows.map(factRow).join('\n      ')}
     </dl>
 
     <hr class="panel-divider" />
@@ -83,12 +104,4 @@ export function renderMoonPanel(container, info) {
       <div class="panel-fact"><dt>Distance</dt><dd>${info.distanceKm.toLocaleString()} km</dd></div>
     </dl>
   `;
-}
-
-export function renderPathStatus(el, points, windowStart, windowEnd) {
-  if (points.length === 0) {
-    el.textContent = `No valid alignment found between ${fmtDateTime(windowStart)} and ${fmtDateTime(windowEnd)} within the max distance — try widening it or picking a different time.`;
-  } else {
-    el.textContent = `${points.length} alignment points from ${fmtDateTime(points[0].time)} to ${fmtDateTime(points[points.length - 1].time)}.`;
-  }
 }

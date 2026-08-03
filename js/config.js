@@ -29,10 +29,18 @@ export const DEFAULT_MAX_DISTANCE_KM = 8;
 // Sampling step for walking the alignment path across the search window.
 export const PATH_STEP_MINUTES = 2;
 
-// The panel (and, in "Now" mode, the path) re-recomputes on this interval
-// (ms) so azimuth/altitude/etc. stay visibly live rather than only updating
-// on page reload. Astronomy Engine's calculations are cheap (sub-ms), so a
-// short interval costs nothing meaningful.
+// The moon info panel (phase/illumination/rise-set/azimuth/altitude/current
+// time) recomputes on this interval (ms). Astronomy Engine's calculations
+// are cheap (a handful of calls, sub-10ms total), so a 1s tick costs nothing
+// meaningful and reads as genuinely live rather than visibly stepping.
+export const PANEL_REFRESH_MS = 1_000;
+
+// The alignment path (and, in "Now" mode, its natural moonrise-to-moonset
+// window) recomputes on this interval (ms) instead — deliberately slower
+// than PANEL_REFRESH_MS, since it's much heavier (one Astronomy Engine call
+// pair per 2-min sample across the whole window, plus re-rendering the map
+// layers) and its natural bounds only change when the moon actually rises
+// or sets, not from one second to the next.
 export const LIVE_REFRESH_MS = 10_000;
 
 export const FEET_PER_METER = 3.28084;
