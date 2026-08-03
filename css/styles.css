@@ -133,14 +133,20 @@ body {
   background: var(--border);
 }
 
-.controlbar-numeric label {
+.controlbar-slider label {
   font-size: 12px;
   color: var(--text-dim);
   white-space: nowrap;
 }
 
-.controlbar-numeric input {
-  width: 72px;
+.controlbar-slider input[type="range"] {
+  width: 90px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.controlbar-slider .slider-value-input {
+  width: 60px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -149,7 +155,7 @@ body {
   font-size: 14px;
 }
 
-.controlbar-numeric .unit {
+.controlbar-slider .unit {
   font-size: 12px;
   color: var(--text-dim);
 }
@@ -359,6 +365,13 @@ body {
   display: flex;
   align-items: stretch;
   gap: 2px;
+  width: 100%;
+  border-radius: 6px;
+  transition: background 0.1s;
+}
+
+.favourite-item:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .favourite-select {
@@ -368,16 +381,12 @@ body {
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
+  background: none;
+  border: 0;
   border-radius: 6px;
   padding: 6px 8px;
   cursor: pointer;
   text-align: left;
-}
-
-.favourite-select:hover {
-  border-color: var(--accent);
 }
 
 .favourite-name {
@@ -402,6 +411,12 @@ body {
   font-size: 13px;
   cursor: pointer;
   padding: 0 4px;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.favourite-item:hover .favourite-icon-btn {
+  opacity: 1;
 }
 
 .favourite-icon-btn:hover {

@@ -26,6 +26,17 @@ export const OBSERVER_ELEVATION_M = 0;
 // Configurable rather than hardcoded — exposed as a control-bar input.
 export const DEFAULT_MAX_DISTANCE_KM = 8;
 
+// Slider bounds for the target-height control. Independently chosen per
+// unit (not a mathematical conversion of one another — 2000 ft and 600 m are
+// each a separately-picked "sane useful range" for that unit).
+export const TARGET_HEIGHT_RANGE = {
+  ft: { min: 0, max: 2000, step: 10 },
+  m: { min: 0, max: 600, step: 5 },
+};
+
+// Slider bounds for the max-distance control (always km, no unit toggle).
+export const MAX_DISTANCE_RANGE = { min: 0, max: 10, step: 0.1 };
+
 // Sampling step for walking the alignment path across the search window.
 export const PATH_STEP_MINUTES = 2;
 

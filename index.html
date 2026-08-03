@@ -24,19 +24,21 @@
 
   <div class="controlbar">
     <div class="controlbar-group controlbar-search">
-      <input id="location-search" type="text" placeholder="Search for a landmark or address…" autocomplete="off" />
+      <input id="location-search" type="text" placeholder="Search for a landmark or enter an address…" autocomplete="off" />
       <ul id="search-results" class="search-results" hidden></ul>
     </div>
 
-    <div class="controlbar-group controlbar-numeric">
-      <label for="target-height">Target height</label>
-      <input id="target-height" type="number" min="0" step="10" />
+    <div class="controlbar-group controlbar-slider">
+      <label for="target-height-slider">Target height</label>
+      <input id="target-height-slider" type="range" min="0" max="2000" step="10" />
+      <input id="target-height" type="number" min="0" step="10" class="slider-value-input" />
       <button id="height-unit" class="unit-toggle" type="button">ft</button>
     </div>
 
-    <div class="controlbar-group controlbar-numeric">
-      <label for="max-distance">Max distance</label>
-      <input id="max-distance" type="number" min="0.1" step="0.5" />
+    <div class="controlbar-group controlbar-slider">
+      <label for="max-distance-slider">Max distance</label>
+      <input id="max-distance-slider" type="range" min="0" max="10" step="0.1" />
+      <input id="max-distance" type="number" min="0.1" step="0.5" class="slider-value-input" />
       <span class="unit">km</span>
     </div>
 
@@ -77,7 +79,7 @@
   </main>
 
   <footer class="site-footer">
-    <span class="footer-version">v1.1.8</span>
+    <span class="footer-version">v1.1.9</span>
     <small>&copy; <span id="footer-year">2026</span> Benjamin d'Entremont. All rights reserved.</small>
   </footer>
 

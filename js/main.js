@@ -4,6 +4,8 @@ import {
   DEFAULT_LANDMARK,
   DEFAULT_TARGET_HEIGHT_FT,
   DEFAULT_MAX_DISTANCE_KM,
+  TARGET_HEIGHT_RANGE,
+  MAX_DISTANCE_RANGE,
   PATH_STEP_MINUTES,
   PANEL_REFRESH_MS,
   LIVE_REFRESH_MS,
@@ -36,8 +38,10 @@ const state = {
 const panelEl = document.getElementById('moon-panel');
 const searchInput = document.getElementById('location-search');
 const searchResultsEl = document.getElementById('search-results');
+const heightSlider = document.getElementById('target-height-slider');
 const heightInput = document.getElementById('target-height');
 const heightUnitBtn = document.getElementById('height-unit');
+const distanceSlider = document.getElementById('max-distance-slider');
 const distanceInput = document.getElementById('max-distance');
 const nowBtn = document.getElementById('time-now');
 const fullMoonBtn = document.getElementById('time-fullmoon');
@@ -46,9 +50,24 @@ const footerYearEl = document.getElementById('footer-year');
 const favouriteStarBtn = document.getElementById('favourite-star-btn');
 const favouritesListEl = document.getElementById('favourites-list');
 
+function applyHeightRange(unit) {
+  const range = TARGET_HEIGHT_RANGE[unit];
+  heightSlider.min = range.min;
+  heightSlider.max = range.max;
+  heightSlider.step = range.step;
+}
+
+applyHeightRange(state.heightUnit);
+heightSlider.value = state.targetHeightValue;
 heightInput.value = state.targetHeightValue;
 heightUnitBtn.textContent = state.heightUnit;
+
+distanceSlider.min = MAX_DISTANCE_RANGE.min;
+distanceSlider.max = MAX_DISTANCE_RANGE.max;
+distanceSlider.step = MAX_DISTANCE_RANGE.step;
+distanceSlider.value = state.maxDistanceKm;
 distanceInput.value = state.maxDistanceKm;
+
 footerYearEl.textContent = String(new Date().getFullYear());
 
 const { map, ready } = createMap('map', {
@@ -64,6 +83,21 @@ function debounce(fn, ms) {
   return (...args) => {
     clearTimeout(t);
     t = setTimeout(() => fn(...args), ms);
+  };
+}
+
+// Coalesces rapid-fire events (e.g. dragging a range slider) to at most once
+// per animation frame, so the path recomputes live during a drag without
+// redoing the work for every sub-frame 'input' event the browser fires.
+function rafThrottle(fn) {
+  let scheduled = false;
+  return (...args) => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      fn(...args);
+    });
   };
 }
 
@@ -140,6 +174,8 @@ function refreshFavouritesUI() {
       if (!fav) return;
       state.targetHeightValue = fav.heightValue;
       state.heightUnit = fav.heightUnit;
+      applyHeightRange(fav.heightUnit);
+      heightSlider.value = fav.heightValue;
       heightInput.value = fav.heightValue;
       heightUnitBtn.textContent = fav.heightUnit;
       state.activeFavouriteId = id;
@@ -240,7 +276,7 @@ document.addEventListener('click', (e) => {
   if (!e.target.closest('.controlbar-search')) searchResultsEl.hidden = true;
 });
 
-// ----- numeric inputs -----
+// ----- numeric inputs (each paired with a slider that mirrors it live) -----
 
 heightInput.addEventListener(
   'input',
@@ -248,11 +284,24 @@ heightInput.addEventListener(
     const v = parseFloat(heightInput.value);
     if (Number.isFinite(v) && v >= 0) {
       state.targetHeightValue = v;
+      heightSlider.value = v;
       state.activeFavouriteId = null;
       updateStarUI();
       updatePath();
     }
   }, 300)
+);
+
+heightSlider.addEventListener(
+  'input',
+  rafThrottle(() => {
+    const v = parseFloat(heightSlider.value);
+    state.targetHeightValue = v;
+    heightInput.value = v;
+    state.activeFavouriteId = null;
+    updateStarUI();
+    updatePath();
+  })
 );
 
 heightUnitBtn.addEventListener('click', () => {
@@ -261,6 +310,8 @@ heightUnitBtn.addEventListener('click', () => {
   const displayValue = newUnit === 'ft' ? metersToFeet(meters) : meters;
   state.heightUnit = newUnit;
   state.targetHeightValue = Math.round(displayValue * (newUnit === 'ft' ? 1 : 10)) / (newUnit === 'ft' ? 1 : 10);
+  applyHeightRange(newUnit);
+  heightSlider.value = state.targetHeightValue;
   heightInput.value = state.targetHeightValue;
   heightUnitBtn.textContent = newUnit;
   state.activeFavouriteId = null;
@@ -274,9 +325,20 @@ distanceInput.addEventListener(
     const v = parseFloat(distanceInput.value);
     if (Number.isFinite(v) && v > 0) {
       state.maxDistanceKm = v;
+      distanceSlider.value = v;
       updatePath();
     }
   }, 300)
+);
+
+distanceSlider.addEventListener(
+  'input',
+  rafThrottle(() => {
+    const v = parseFloat(distanceSlider.value);
+    state.maxDistanceKm = v;
+    distanceInput.value = v;
+    updatePath();
+  })
 );
 
 // ----- time controls -----
