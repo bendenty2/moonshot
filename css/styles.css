@@ -650,7 +650,11 @@ body {
   }
   .controlbar {
     min-height: auto;
-    padding: 12px;
+    /* Wraps to 2+ rows at this width — match the vertical padding to the
+       row gap so the wrapped rows read as evenly spaced, not sandwiched
+       tight against the bar's own top/bottom edges. */
+    padding: 16px 12px;
+    gap: 16px;
   }
   .controlbar-time {
     margin-left: 0;

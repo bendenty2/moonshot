@@ -5,6 +5,7 @@ import {
   DEFAULT_TARGET_HEIGHT_FT,
   DEFAULT_MAX_DISTANCE_KM,
   PATH_STEP_MINUTES,
+  PANEL_REFRESH_MS,
   LIVE_REFRESH_MS,
   heightToMeters,
   metersToFeet,
@@ -13,7 +14,7 @@ import {
 import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js';
 import { computeAlignmentPath } from './alignment.js';
 import { createMap, addLandmarkMarker, onMapClick, renderAlignmentPath, geocode } from './map.js';
-import { computeMoonInfo, renderMoonPanel, renderPathStatus, formatExactTime } from './panel.js';
+import { computeMoonInfo, renderMoonPanel, renderPathStatus } from './panel.js';
 import { createDatePicker } from './datepicker.js';
 import { loadFavourites, addFavourite, renameFavourite, removeFavourite, renderFavourites } from './favourites.js';
 
@@ -335,19 +336,17 @@ ready.then(() => {
 
 refreshFavouritesUI();
 
+// Panel data (phase, illumination, rise/set ordering, azimuth/altitude,
+// current time) ticks fast — it's cheap and reads as genuinely live.
+setInterval(updatePanel, PANEL_REFRESH_MS);
+
+// The path/window recompute is heavier and doesn't need second-by-second
+// updates (its natural bounds only change when the moon actually rises or
+// sets), so it stays on its own slower cadence.
 setInterval(() => {
-  updatePanel();
   if (state.timeMode === 'now' && !state.pathBoundsCustomized) {
     recomputeNaturalWindow();
   } else {
     updatePath();
   }
 }, LIVE_REFRESH_MS);
-
-// A proper ticking clock for the "Current time" row specifically — cheap
-// (no astronomy recompute), so it can run every second independent of the
-// slower LIVE_REFRESH_MS cycle that redoes the actual sky math.
-setInterval(() => {
-  const el = document.getElementById('panel-current-time');
-  if (el) el.textContent = formatExactTime(new Date());
-}, 1000);
