@@ -8,10 +8,6 @@ const HIT_LAYER_ID = 'alignment-path-hit';
 const LINE_LAYER_ID = 'alignment-path-line';
 const ARROWS_LAYER_ID = 'alignment-arrows-symbol';
 
-const SLOW_COLOR = [255, 204, 102]; // yellow (--accent)
-const FAST_COLOR = [61, 133, 246]; // blue
-
-const EARTH_RADIUS_M = 6371000;
 const DEG = Math.PI / 180;
 const RAD = 180 / Math.PI;
 
@@ -62,13 +58,6 @@ function formatTooltipTime(date) {
   });
 }
 
-function haversineMeters(a, b) {
-  const dLat = (b.lat - a.lat) * DEG;
-  const dLon = (b.lon - a.lon) * DEG;
-  const s = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * DEG) * Math.cos(b.lat * DEG) * Math.sin(dLon / 2) ** 2;
-  return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(s));
-}
-
 function bearingBetween(a, b) {
   const phi1 = a.lat * DEG;
   const phi2 = b.lat * DEG;
@@ -94,68 +83,25 @@ function pathToGeoJSON(points) {
   };
 }
 
-// ~`count` evenly-spaced arrow markers along the path, each rotated to the
-// local direction of travel (from the previous sample to the next one).
+// One arrow per sample point (i.e. every PATH_STEP_MINUTES), each rotated to
+// the local direction of travel (from the previous sample to the next one).
 // '▶' points east (bearing 90°) at zero rotation, so the rotation applied is
 // (bearing - 90) to align it with the true compass bearing.
-function arrowsToGeoJSON(points, count) {
+function arrowsToGeoJSON(points) {
   if (points.length < 2) return { type: 'FeatureCollection', features: [] };
 
-  const step = Math.max(1, Math.floor(points.length / count));
-  const features = [];
-
-  for (let i = step; i < points.length - 1; i += step) {
-    const from = points[i - 1];
-    const to = points[Math.min(i + 1, points.length - 1)];
+  const features = points.map((p, i) => {
+    const from = points[Math.max(0, i - 1)];
+    const to = points[Math.min(points.length - 1, i + 1)];
     const bearing = bearingBetween(from, to);
-    features.push({
+    return {
       type: 'Feature',
-      geometry: { type: 'Point', coordinates: [points[i].lon, points[i].lat] },
+      geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
       properties: { rotate: (bearing - 90 + 360) % 360 },
-    });
-  }
+    };
+  });
 
   return { type: 'FeatureCollection', features };
-}
-
-function lerpColor(t) {
-  const c = SLOW_COLOR.map((slow, i) => Math.round(slow + (FAST_COLOR[i] - slow) * t));
-  return `rgb(${c[0]},${c[1]},${c[2]})`;
-}
-
-// Builds a `line-gradient` expression coloring each stretch of the path by
-// how fast the observer point is moving there (ground distance covered per
-// fixed time step) — blue where it's moving quickly (typically near the
-// horizon segments), yellow where it's moving slowly (near culmination).
-function buildGradientExpression(points) {
-  const FALLBACK = ['interpolate', ['linear'], ['line-progress'], 0, '#ffcc66', 1, '#ffcc66'];
-  if (points.length < 2) return FALLBACK;
-
-  const cum = [0];
-  for (let i = 1; i < points.length; i++) cum.push(cum[i - 1] + haversineMeters(points[i - 1], points[i]));
-  const total = cum[cum.length - 1];
-  if (total <= 0) return FALLBACK;
-
-  const segSpeed = [];
-  for (let i = 0; i < points.length - 1; i++) segSpeed.push(haversineMeters(points[i], points[i + 1]));
-  const minSpeed = Math.min(...segSpeed);
-  const maxSpeed = Math.max(...segSpeed);
-  const norm = (s) => (maxSpeed > minSpeed ? (s - minSpeed) / (maxSpeed - minSpeed) : 0.5);
-
-  const stopCount = Math.min(60, segSpeed.length);
-  const stops = ['interpolate', ['linear'], ['line-progress']];
-  let lastT = -1;
-
-  for (let s = 0; s < stopCount; s++) {
-    const segIdx = Math.min(segSpeed.length - 1, Math.round((s / (stopCount - 1)) * (segSpeed.length - 1)));
-    let t = cum[segIdx] / total;
-    if (t <= lastT) t = lastT + 1e-6;
-    lastT = t;
-    stops.push(t, lerpColor(norm(segSpeed[segIdx])));
-  }
-  if (lastT < 1) stops.push(1, lerpColor(norm(segSpeed[segSpeed.length - 1])));
-
-  return stops;
 }
 
 // Finds the closest point on the polyline to (lng, lat) via simple planar
@@ -223,13 +169,11 @@ function wireHover(map) {
   });
 }
 
-// Adds the path/arrow layers on first call, updates their data (and the
-// speed gradient) on later calls.
+// Adds the path/arrow layers on first call, updates their data on later calls.
 export function renderAlignmentPath(map, points) {
   currentPoints = points;
   const lineData = pathToGeoJSON(points);
-  const arrowData = arrowsToGeoJSON(points, 10);
-  const gradient = buildGradientExpression(points);
+  const arrowData = arrowsToGeoJSON(points);
 
   const lineSource = map.getSource(PATH_SOURCE_ID);
   const arrowSource = map.getSource(ARROWS_SOURCE_ID);
@@ -237,11 +181,10 @@ export function renderAlignmentPath(map, points) {
   if (lineSource && arrowSource) {
     lineSource.setData(lineData);
     arrowSource.setData(arrowData);
-    map.setPaintProperty(LINE_LAYER_ID, 'line-gradient', gradient);
     return;
   }
 
-  map.addSource(PATH_SOURCE_ID, { type: 'geojson', data: lineData, lineMetrics: true });
+  map.addSource(PATH_SOURCE_ID, { type: 'geojson', data: lineData });
   map.addSource(ARROWS_SOURCE_ID, { type: 'geojson', data: arrowData });
 
   // Wide, invisible line purely to give the thin visible line a forgiving hover hit-area.
@@ -259,7 +202,7 @@ export function renderAlignmentPath(map, points) {
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
       'line-width': 2,
-      'line-gradient': gradient,
+      'line-color': '#ffcc66',
     },
   });
 

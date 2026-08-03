@@ -15,6 +15,7 @@ import { computeAlignmentPath } from './alignment.js';
 import { createMap, addLandmarkMarker, onMapClick, renderAlignmentPath, geocode } from './map.js';
 import { computeMoonInfo, renderMoonPanel, renderPathStatus } from './panel.js';
 import { createDatePicker } from './datepicker.js';
+import { loadFavourites, addFavourite, renameFavourite, removeFavourite, renderFavourites } from './favourites.js';
 
 const state = {
   landmark: { ...DEFAULT_LANDMARK },
@@ -26,6 +27,8 @@ const state = {
   pathStart: null,
   pathEnd: null,
   pathBoundsCustomized: false,
+  favourites: loadFavourites(),
+  locationLocked: false,
 };
 
 const panelEl = document.getElementById('moon-panel');
@@ -41,6 +44,9 @@ const customBtn = document.getElementById('time-custom-btn');
 const pathStartInput = document.getElementById('path-start');
 const pathEndInput = document.getElementById('path-end');
 const footerYearEl = document.getElementById('footer-year');
+const lockToggle = document.getElementById('lock-location-toggle');
+const setFavouriteBtn = document.getElementById('set-favourite-btn');
+const favouritesListEl = document.getElementById('favourites-list');
 
 heightInput.value = state.targetHeightValue;
 heightUnitBtn.textContent = state.heightUnit;
@@ -141,6 +147,45 @@ function setLandmark(landmark, { flyTo = false } = {}) {
   updatePanel();
   recomputeNaturalWindow();
 }
+
+// ----- favourites -----
+
+function refreshFavouritesUI() {
+  renderFavourites(favouritesListEl, state.favourites, {
+    onSelect: (id) => {
+      const fav = state.favourites.find((f) => f.id === id);
+      if (!fav) return;
+      state.targetHeightValue = fav.heightValue;
+      state.heightUnit = fav.heightUnit;
+      heightInput.value = fav.heightValue;
+      heightUnitBtn.textContent = fav.heightUnit;
+      setLandmark({ name: fav.name, lat: fav.lat, lon: fav.lon }, { flyTo: true });
+    },
+    onRename: (id, name) => {
+      state.favourites = renameFavourite(state.favourites, id, name);
+      refreshFavouritesUI();
+    },
+    onRemove: (id) => {
+      state.favourites = removeFavourite(state.favourites, id);
+      refreshFavouritesUI();
+    },
+  });
+}
+
+setFavouriteBtn.addEventListener('click', () => {
+  state.favourites = addFavourite(state.favourites, {
+    name: state.landmark.name || 'Favourite',
+    lat: state.landmark.lat,
+    lon: state.landmark.lon,
+    heightValue: state.targetHeightValue,
+    heightUnit: state.heightUnit,
+  });
+  refreshFavouritesUI();
+});
+
+lockToggle.addEventListener('change', () => {
+  state.locationLocked = lockToggle.checked;
+});
 
 function activateNow() {
   state.timeMode = 'now';
@@ -280,12 +325,15 @@ ready.then(() => {
   });
 
   onMapClick(map, (lonlat) => {
+    if (state.locationLocked) return;
     setLandmark({ name: 'Custom location', lat: lonlat.lat, lon: lonlat.lon });
   });
 
   updatePanel();
   recomputeNaturalWindow();
 });
+
+refreshFavouritesUI();
 
 setInterval(() => {
   updatePanel();

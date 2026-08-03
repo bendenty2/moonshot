@@ -25,7 +25,7 @@ export function computeMoonInfo(date, landmark) {
 
   return {
     phaseName,
-    illuminationPct: Math.round(fraction * 100),
+    illuminationPct: Math.round(fraction * 1000) / 10,
     moonrise: rise,
     moonset: set,
     nextFullMoon: fullMoon,
@@ -42,7 +42,7 @@ export function renderMoonPanel(container, info) {
 
     <div class="panel-row panel-row--phase">
       <span class="panel-phase-name">${info.phaseName}</span>
-      <span class="panel-phase-pct">${info.illuminationPct}% illuminated</span>
+      <span class="panel-phase-pct">${info.illuminationPct.toFixed(1)}% illuminated</span>
     </div>
 
     <dl class="panel-facts">

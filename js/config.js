@@ -1,8 +1,8 @@
 // Moonshot configuration.
 //
-// Dedicated public token for Moonshot. TODO: once a deployment domain is
-// chosen, add a URL restriction to this token in the Mapbox dashboard
-// (console.mapbox.com/account/access-tokens) — safe to leave open until then.
+// Dedicated public token for Moonshot, URL-restricted in the Mapbox dashboard
+// (console.mapbox.com/account/access-tokens) to moonshot.bendentremont.com,
+// dev.moonshot.bendentremont.com, and localhost.
 export const MAPBOX_TOKEN = 'pk.eyJ1IjoiYmVuZGVudHJlbW9udCIsImEiOiJjbXNjMjlraDkxaXJiMzVwcGozMnFuNXJ2In0.b3E8CuU6PSuqgm0engM3Vw';
 
 export const MAPBOX_STYLE = 'mapbox://styles/mapbox/dark-v11';
@@ -29,8 +29,11 @@ export const DEFAULT_MAX_DISTANCE_KM = 8;
 // Sampling step for walking the alignment path across the search window.
 export const PATH_STEP_MINUTES = 2;
 
-// "Now" mode re-recomputes on this interval (ms) so the panel/path stay fresh.
-export const LIVE_REFRESH_MS = 60_000;
+// The panel (and, in "Now" mode, the path) re-recomputes on this interval
+// (ms) so azimuth/altitude/etc. stay visibly live rather than only updating
+// on page reload. Astronomy Engine's calculations are cheap (sub-ms), so a
+// short interval costs nothing meaningful.
+export const LIVE_REFRESH_MS = 10_000;
 
 export const FEET_PER_METER = 3.28084;
 export const METERS_PER_KM = 1000;
