@@ -12,13 +12,13 @@ import {
   heightToMeters,
   metersToFeet,
   kmToMeters,
-} from './config.js?v=1.1.10';
-import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.1.10';
-import { computeAlignmentPath } from './alignment.js?v=1.1.10';
-import { createMap, addLandmarkMarker, onMapClick, renderAlignmentPath, geocode } from './map.js?v=1.1.10';
-import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.1.10';
-import { createDatePicker } from './datepicker.js?v=1.1.10';
-import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.1.10';
+} from './config.js?v=1.1.11';
+import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.1.11';
+import { computeAlignmentPath } from './alignment.js?v=1.1.11';
+import { createMap, addLandmarkMarker, onMapClick, renderAlignmentPath, geocode } from './map.js?v=1.1.11';
+import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.1.11';
+import { createDatePicker } from './datepicker.js?v=1.1.11';
+import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.1.11';
 
 const state = {
   landmark: { ...DEFAULT_LANDMARK },
@@ -353,6 +353,22 @@ createDatePicker({
   weekdaysEl: document.getElementById('date-picker-weekdays'),
   daysEl: document.getElementById('date-picker-days'),
   onSelect: (date) => activateCustom(date),
+});
+
+// ----- top-level tabs -----
+
+const topbarTabs = document.querySelectorAll('.topbar-tab');
+
+topbarTabs.forEach((tab) => {
+  tab.addEventListener('click', () => {
+    const view = tab.dataset.view;
+    topbarTabs.forEach((t) => t.classList.toggle('is-active', t === tab));
+    document.querySelectorAll('.view').forEach((el) => el.classList.toggle('is-active', el.id === `view-${view}`));
+
+    // Mapbox renders into a fixed-size canvas that doesn't notice its
+    // container coming back from display:none — nudge it to recalculate.
+    if (view === 'alignment') requestAnimationFrame(() => map.resize());
+  });
 });
 
 // ----- init -----

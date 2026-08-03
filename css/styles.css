@@ -69,6 +69,48 @@ body {
   color: var(--text);
 }
 
+.topbar-tabs {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.topbar-tab {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.topbar-tab.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* ===== Views (tab content) ===== */
+
+.view {
+  display: none;
+}
+
+.view.is-active {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.view-placeholder {
+  margin: auto;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
 /* ===== Control bar ===== */
 
 .controlbar {

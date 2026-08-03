@@ -11,7 +11,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%232d4a9e%22/></svg>" />
 
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.27.0/mapbox-gl.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=1.1.10" />
+  <link rel="stylesheet" href="css/styles.css?v=1.1.11" />
   <!-- Self-hosted DM Sans (see @font-face in styles.css). Preload the primary
        latin file so text paints in the real face without a Google round-trip. -->
   <link rel="preload" href="fonts/dmsans-latin.woff2" as="font" type="font/woff2" crossorigin />
@@ -20,71 +20,81 @@
 
   <header class="topbar">
     <span class="topbar-brand">Moonshot</span>
+    <nav class="topbar-tabs" aria-label="Tools">
+      <button type="button" class="topbar-tab is-active" data-view="alignment">Moon Alignment</button>
+      <button type="button" class="topbar-tab" data-view="pov-arc">POV Arc</button>
+    </nav>
   </header>
 
-  <div class="controlbar">
-    <div class="controlbar-group controlbar-search">
-      <input id="location-search" type="text" placeholder="Search for a landmark or enter an address…" autocomplete="off" />
-      <ul id="search-results" class="search-results" hidden></ul>
-    </div>
+  <div id="view-alignment" class="view is-active">
+    <div class="controlbar">
+      <div class="controlbar-group controlbar-search">
+        <input id="location-search" type="text" placeholder="Search for a landmark or enter an address…" autocomplete="off" />
+        <ul id="search-results" class="search-results" hidden></ul>
+      </div>
 
-    <div class="controlbar-group controlbar-slider">
-      <label for="target-height-slider">Target height</label>
-      <input id="target-height-slider" type="range" min="0" max="2000" step="10" />
-      <input id="target-height" type="number" min="0" step="10" class="slider-value-input" />
-      <button id="height-unit" class="unit-toggle" type="button">ft</button>
-    </div>
+      <div class="controlbar-group controlbar-slider">
+        <label for="target-height-slider">Target height</label>
+        <input id="target-height-slider" type="range" min="0" max="2000" step="10" />
+        <input id="target-height" type="number" min="0" step="10" class="slider-value-input" />
+        <button id="height-unit" class="unit-toggle" type="button">ft</button>
+      </div>
 
-    <div class="controlbar-group controlbar-slider">
-      <label for="max-distance-slider">Max distance</label>
-      <input id="max-distance-slider" type="range" min="0" max="10" step="0.1" />
-      <input id="max-distance" type="number" min="0.1" step="0.5" class="slider-value-input" />
-      <span class="unit">km</span>
-    </div>
+      <div class="controlbar-group controlbar-slider">
+        <label for="max-distance-slider">Max distance</label>
+        <input id="max-distance-slider" type="range" min="0" max="10" step="0.1" />
+        <input id="max-distance" type="number" min="0.1" step="0.5" class="slider-value-input" />
+        <span class="unit">km</span>
+      </div>
 
-    <div class="controlbar-group controlbar-time">
-      <button id="time-now" class="time-btn is-active" type="button">Now</button>
-      <button id="time-fullmoon" class="time-btn" type="button">Next Full Moon</button>
-      <div class="date-picker">
-        <button id="time-custom-btn" class="time-btn" type="button">Custom Date</button>
-        <div id="date-picker-popover" class="date-picker-popover" hidden>
-          <div class="date-picker-header">
-            <button type="button" class="date-nav" data-nav="prev-year" aria-label="Previous year">&laquo;</button>
-            <button type="button" class="date-nav" data-nav="prev-month" aria-label="Previous month">&lsaquo;</button>
-            <span id="date-picker-label" class="date-picker-label"></span>
-            <button type="button" class="date-nav" data-nav="next-month" aria-label="Next month">&rsaquo;</button>
-            <button type="button" class="date-nav" data-nav="next-year" aria-label="Next year">&raquo;</button>
+      <div class="controlbar-group controlbar-time">
+        <button id="time-now" class="time-btn is-active" type="button">Now</button>
+        <button id="time-fullmoon" class="time-btn" type="button">Next Full Moon</button>
+        <div class="date-picker">
+          <button id="time-custom-btn" class="time-btn" type="button">Custom Date</button>
+          <div id="date-picker-popover" class="date-picker-popover" hidden>
+            <div class="date-picker-header">
+              <button type="button" class="date-nav" data-nav="prev-year" aria-label="Previous year">&laquo;</button>
+              <button type="button" class="date-nav" data-nav="prev-month" aria-label="Previous month">&lsaquo;</button>
+              <span id="date-picker-label" class="date-picker-label"></span>
+              <button type="button" class="date-nav" data-nav="next-month" aria-label="Next month">&rsaquo;</button>
+              <button type="button" class="date-nav" data-nav="next-year" aria-label="Next year">&raquo;</button>
+            </div>
+            <div id="date-picker-weekdays" class="date-picker-weekdays"></div>
+            <div id="date-picker-days" class="date-picker-days"></div>
           </div>
-          <div id="date-picker-weekdays" class="date-picker-weekdays"></div>
-          <div id="date-picker-days" class="date-picker-days"></div>
         </div>
       </div>
     </div>
+
+    <main class="layout">
+      <aside class="sidebar-pane" aria-label="Tools">
+        <div class="sidebar-section">
+          <div class="sidebar-section-header">
+            <h3 class="sidebar-section-title">Favourites</h3>
+            <button id="favourite-star-btn" class="favourite-star-btn" type="button" aria-label="Save current location as favourite" title="Save current location as favourite">&#9734;</button>
+          </div>
+          <ul id="favourites-list" class="favourites-list"></ul>
+        </div>
+      </aside>
+      <div id="map" class="map-pane" aria-label="Alignment map"></div>
+      <aside class="panel-pane" aria-label="Moon information">
+        <div id="moon-panel"></div>
+      </aside>
+    </main>
   </div>
 
-  <main class="layout">
-    <aside class="sidebar-pane" aria-label="Tools">
-      <div class="sidebar-section">
-        <div class="sidebar-section-header">
-          <h3 class="sidebar-section-title">Favourites</h3>
-          <button id="favourite-star-btn" class="favourite-star-btn" type="button" aria-label="Save current location as favourite" title="Save current location as favourite">&#9734;</button>
-        </div>
-        <ul id="favourites-list" class="favourites-list"></ul>
-      </div>
-    </aside>
-    <div id="map" class="map-pane" aria-label="Alignment map"></div>
-    <aside class="panel-pane" aria-label="Moon information">
-      <div id="moon-panel"></div>
-    </aside>
-  </main>
+  <div id="view-pov-arc" class="view">
+    <p class="view-placeholder">POV Arc — coming soon.</p>
+  </div>
 
   <footer class="site-footer">
-    <span class="footer-version">v1.1.10</span>
+    <span class="footer-version">v1.1.11</span>
     <small>&copy; <span id="footer-year">2026</span> Benjamin d'Entremont. All rights reserved.</small>
   </footer>
 
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.27.0/mapbox-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
-  <script type="module" src="js/main.js?v=1.1.10"></script>
+  <script type="module" src="js/main.js?v=1.1.11"></script>
 </body>
 </html>
