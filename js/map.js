@@ -37,7 +37,7 @@ export function createMap(containerId, { token, style, center }) {
 }
 
 export function addLandmarkMarker(map, lonlat, onDragEnd) {
-  const marker = new mapboxgl.Marker({ color: '#ffcc66', draggable: true })
+  const marker = new mapboxgl.Marker({ color: '#2d4a9e', draggable: true })
     .setLngLat([lonlat.lon, lonlat.lat])
     .addTo(map);
 
@@ -253,7 +253,7 @@ export function renderAlignmentPath(map, points) {
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
       'line-width': 2,
-      'line-color': '#ffcc66',
+      'line-color': '#2d4a9e',
     },
   });
 
