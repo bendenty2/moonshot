@@ -114,21 +114,39 @@ function arrowsToGeoJSON(points) {
   return { type: 'FeatureCollection', features };
 }
 
-// Permanent (always-visible, not just on hover) labels every LABEL_INTERVAL_MIN
-// minutes of elapsed path time — computed from actual elapsed time rather than
-// a fixed sample-index stride, so this stays correct if PATH_STEP_MINUTES ever
-// changes to something that doesn't evenly divide the interval.
+// Permanent (always-visible, not just on hover) labels on true round
+// clock-time marks (e.g. 11:30, 11:40, 11:50 — not offsets from wherever the
+// path happens to start, like the moon's exact moonrise second). The path's
+// own samples are fixed 2-min steps from an arbitrary start instant, so they
+// essentially never land exactly on a round mark — for each candidate mark
+// within the path's span, this picks whichever sample is closest to it and
+// labels that point with the *rounded* time text, not the sample's own
+// (slightly off) exact time.
 function timestampLabelsToGeoJSON(points) {
   if (points.length === 0) return { type: 'FeatureCollection', features: [] };
 
-  const startMs = points[0].time.getTime();
-  const features = points
-    .filter((p) => Math.round((p.time.getTime() - startMs) / 60000) % LABEL_INTERVAL_MIN === 0)
-    .map((p) => ({
+  const intervalMs = LABEL_INTERVAL_MIN * 60 * 1000;
+  const firstMark = Math.ceil(points[0].time.getTime() / intervalMs) * intervalMs;
+  const lastMark = Math.floor(points[points.length - 1].time.getTime() / intervalMs) * intervalMs;
+
+  const features = [];
+  let searchIdx = 0;
+
+  for (let mark = firstMark; mark <= lastMark; mark += intervalMs) {
+    // Advance to the sample straddling this mark, then pick whichever of
+    // that sample or the previous one is actually closer.
+    while (searchIdx < points.length - 1 && points[searchIdx + 1].time.getTime() < mark) searchIdx++;
+    const candidates = [points[searchIdx], points[Math.min(searchIdx + 1, points.length - 1)]];
+    const closest = candidates.reduce((best, p) =>
+      Math.abs(p.time.getTime() - mark) < Math.abs(best.time.getTime() - mark) ? p : best
+    );
+
+    features.push({
       type: 'Feature',
-      geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
-      properties: { label: formatLabelTime(p.time) },
-    }));
+      geometry: { type: 'Point', coordinates: [closest.lon, closest.lat] },
+      properties: { label: formatLabelTime(new Date(mark)) },
+    });
+  }
 
   return { type: 'FeatureCollection', features };
 }

@@ -28,6 +28,9 @@ const state = {
   pathStart: null,
   pathEnd: null,
   favourites: loadFavourites(),
+  // The favourite (if any) that the current landmark + target height were
+  // just loaded from — drives the star's filled/unfilled state.
+  activeFavouriteId: null,
 };
 
 const panelEl = document.getElementById('moon-panel');
@@ -40,7 +43,7 @@ const nowBtn = document.getElementById('time-now');
 const fullMoonBtn = document.getElementById('time-fullmoon');
 const customBtn = document.getElementById('time-custom-btn');
 const footerYearEl = document.getElementById('footer-year');
-const setFavouriteBtn = document.getElementById('set-favourite-btn');
+const favouriteStarBtn = document.getElementById('favourite-star-btn');
 const favouritesListEl = document.getElementById('favourites-list');
 
 heightInput.value = state.targetHeightValue;
@@ -110,15 +113,25 @@ function recomputeNaturalWindow() {
   updatePath();
 }
 
-function setLandmark(landmark, { flyTo = false } = {}) {
+function setLandmark(landmark, { flyTo = false, fromFavourite = false } = {}) {
   state.landmark = landmark;
   marker.setLngLat([landmark.lon, landmark.lat]);
   if (flyTo) map.flyTo({ center: [landmark.lon, landmark.lat], zoom: Math.max(map.getZoom(), 14) });
+  if (!fromFavourite) {
+    state.activeFavouriteId = null;
+    updateStarUI();
+  }
   updatePanel();
   recomputeNaturalWindow();
 }
 
 // ----- favourites -----
+
+function updateStarUI() {
+  const active = state.activeFavouriteId !== null;
+  favouriteStarBtn.textContent = active ? '★' : '☆'; // filled / outline star
+  favouriteStarBtn.classList.toggle('is-active', active);
+}
 
 function refreshFavouritesUI() {
   renderFavourites(favouritesListEl, state.favourites, {
@@ -129,7 +142,9 @@ function refreshFavouritesUI() {
       state.heightUnit = fav.heightUnit;
       heightInput.value = fav.heightValue;
       heightUnitBtn.textContent = fav.heightUnit;
-      setLandmark({ name: fav.name, lat: fav.lat, lon: fav.lon }, { flyTo: true });
+      state.activeFavouriteId = id;
+      updateStarUI();
+      setLandmark({ name: fav.name, lat: fav.lat, lon: fav.lon }, { flyTo: true, fromFavourite: true });
     },
     onEdit: (id, updates) => {
       state.favourites = updateFavourite(state.favourites, id, updates);
@@ -137,12 +152,17 @@ function refreshFavouritesUI() {
     },
     onRemove: (id) => {
       state.favourites = removeFavourite(state.favourites, id);
+      if (id === state.activeFavouriteId) {
+        state.activeFavouriteId = null;
+        updateStarUI();
+      }
       refreshFavouritesUI();
     },
   });
 }
 
-setFavouriteBtn.addEventListener('click', () => {
+favouriteStarBtn.addEventListener('click', () => {
+  if (state.activeFavouriteId !== null) return; // current state already matches a saved favourite
   state.favourites = addFavourite(state.favourites, {
     name: state.landmark.name || 'Favourite',
     lat: state.landmark.lat,
@@ -150,6 +170,8 @@ setFavouriteBtn.addEventListener('click', () => {
     heightValue: state.targetHeightValue,
     heightUnit: state.heightUnit,
   });
+  state.activeFavouriteId = state.favourites[state.favourites.length - 1].id;
+  updateStarUI();
   refreshFavouritesUI();
 });
 
@@ -226,6 +248,8 @@ heightInput.addEventListener(
     const v = parseFloat(heightInput.value);
     if (Number.isFinite(v) && v >= 0) {
       state.targetHeightValue = v;
+      state.activeFavouriteId = null;
+      updateStarUI();
       updatePath();
     }
   }, 300)
@@ -239,6 +263,8 @@ heightUnitBtn.addEventListener('click', () => {
   state.targetHeightValue = Math.round(displayValue * (newUnit === 'ft' ? 1 : 10)) / (newUnit === 'ft' ? 1 : 10);
   heightInput.value = state.targetHeightValue;
   heightUnitBtn.textContent = newUnit;
+  state.activeFavouriteId = null;
+  updateStarUI();
   updatePath();
 });
 
@@ -283,6 +309,7 @@ ready.then(() => {
 });
 
 refreshFavouritesUI();
+updateStarUI();
 
 // Panel data (phase, illumination, rise/set ordering, azimuth/altitude,
 // current time) ticks fast — it's cheap and reads as genuinely live.

@@ -62,10 +62,11 @@
 
   <main class="layout">
     <aside class="sidebar-pane" aria-label="Tools">
-      <button id="set-favourite-btn" class="sidebar-btn" type="button">Set Favourite</button>
-
       <div class="sidebar-section">
-        <h3 class="sidebar-section-title">Favourites</h3>
+        <div class="sidebar-section-header">
+          <h3 class="sidebar-section-title">Favourites</h3>
+          <button id="favourite-star-btn" class="favourite-star-btn" type="button" aria-label="Save current location as favourite" title="Save current location as favourite">&#9734;</button>
+        </div>
         <ul id="favourites-list" class="favourites-list"></ul>
       </div>
     </aside>
@@ -76,7 +77,7 @@
   </main>
 
   <footer class="site-footer">
-    <span class="footer-version">v1.1.7</span>
+    <span class="footer-version">v1.1.8</span>
     <small>&copy; <span id="footer-year">2026</span> Benjamin d'Entremont. All rights reserved.</small>
   </footer>
 

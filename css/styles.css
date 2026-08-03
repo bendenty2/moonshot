@@ -305,31 +305,40 @@ body {
   border-right: 1px solid var(--border);
 }
 
-/* ===== Sidebar buttons / favourites ===== */
+/* ===== Sidebar / favourites ===== */
 
-.sidebar-btn {
-  width: 100%;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  padding: 8px 10px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.sidebar-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
 }
 
 .sidebar-section-title {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-dim);
-  margin: 0 0 8px;
+  margin: 0;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.favourite-star-btn {
+  background: none;
+  border: 0;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.favourite-star-btn:hover {
+  color: var(--accent);
+}
+
+.favourite-star-btn.is-active {
+  color: var(--accent);
 }
 
 .favourites-list {
