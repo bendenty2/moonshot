@@ -13,7 +13,7 @@ import {
 import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js';
 import { computeAlignmentPath } from './alignment.js';
 import { createMap, addLandmarkMarker, onMapClick, renderAlignmentPath, geocode } from './map.js';
-import { computeMoonInfo, renderMoonPanel, renderPathStatus } from './panel.js';
+import { computeMoonInfo, renderMoonPanel, renderPathStatus, formatExactTime } from './panel.js';
 import { createDatePicker } from './datepicker.js';
 import { loadFavourites, addFavourite, renameFavourite, removeFavourite, renderFavourites } from './favourites.js';
 
@@ -343,3 +343,11 @@ setInterval(() => {
     updatePath();
   }
 }, LIVE_REFRESH_MS);
+
+// A proper ticking clock for the "Current time" row specifically — cheap
+// (no astronomy recompute), so it can run every second independent of the
+// slower LIVE_REFRESH_MS cycle that redoes the actual sky math.
+setInterval(() => {
+  const el = document.getElementById('panel-current-time');
+  if (el) el.textContent = formatExactTime(new Date());
+}, 1000);
