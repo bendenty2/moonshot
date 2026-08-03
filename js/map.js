@@ -4,9 +4,13 @@
 
 const PATH_SOURCE_ID = 'alignment-path';
 const ARROWS_SOURCE_ID = 'alignment-arrows';
+const TIMESTAMPS_SOURCE_ID = 'alignment-timestamps';
 const HIT_LAYER_ID = 'alignment-path-hit';
 const LINE_LAYER_ID = 'alignment-path-line';
 const ARROWS_LAYER_ID = 'alignment-arrows-symbol';
+const TIMESTAMPS_LAYER_ID = 'alignment-timestamps-symbol';
+
+const LABEL_INTERVAL_MIN = 10;
 
 const DEG = Math.PI / 180;
 const RAD = 180 / Math.PI;
@@ -52,10 +56,16 @@ export function onMapClick(map, handler) {
 function formatTooltipTime(date) {
   return date.toLocaleString(undefined, {
     weekday: 'short',
+    month: 'short',
+    day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
     second: '2-digit',
   });
+}
+
+function formatLabelTime(date) {
+  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
 function bearingBetween(a, b) {
@@ -100,6 +110,25 @@ function arrowsToGeoJSON(points) {
       properties: { rotate: (bearing - 90 + 360) % 360 },
     };
   });
+
+  return { type: 'FeatureCollection', features };
+}
+
+// Permanent (always-visible, not just on hover) labels every LABEL_INTERVAL_MIN
+// minutes of elapsed path time — computed from actual elapsed time rather than
+// a fixed sample-index stride, so this stays correct if PATH_STEP_MINUTES ever
+// changes to something that doesn't evenly divide the interval.
+function timestampLabelsToGeoJSON(points) {
+  if (points.length === 0) return { type: 'FeatureCollection', features: [] };
+
+  const startMs = points[0].time.getTime();
+  const features = points
+    .filter((p) => Math.round((p.time.getTime() - startMs) / 60000) % LABEL_INTERVAL_MIN === 0)
+    .map((p) => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+      properties: { label: formatLabelTime(p.time) },
+    }));
 
   return { type: 'FeatureCollection', features };
 }
@@ -169,23 +198,27 @@ function wireHover(map) {
   });
 }
 
-// Adds the path/arrow layers on first call, updates their data on later calls.
+// Adds the path/arrow/timestamp layers on first call, updates their data on later calls.
 export function renderAlignmentPath(map, points) {
   currentPoints = points;
   const lineData = pathToGeoJSON(points);
   const arrowData = arrowsToGeoJSON(points);
+  const timestampData = timestampLabelsToGeoJSON(points);
 
   const lineSource = map.getSource(PATH_SOURCE_ID);
   const arrowSource = map.getSource(ARROWS_SOURCE_ID);
+  const timestampSource = map.getSource(TIMESTAMPS_SOURCE_ID);
 
-  if (lineSource && arrowSource) {
+  if (lineSource && arrowSource && timestampSource) {
     lineSource.setData(lineData);
     arrowSource.setData(arrowData);
+    timestampSource.setData(timestampData);
     return;
   }
 
   map.addSource(PATH_SOURCE_ID, { type: 'geojson', data: lineData });
   map.addSource(ARROWS_SOURCE_ID, { type: 'geojson', data: arrowData });
+  map.addSource(TIMESTAMPS_SOURCE_ID, { type: 'geojson', data: timestampData });
 
   // Wide, invisible line purely to give the thin visible line a forgiving hover hit-area.
   map.addLayer({
@@ -218,6 +251,29 @@ export function renderAlignmentPath(map, points) {
       'text-allow-overlap': true,
       'text-ignore-placement': true,
       'text-keep-upright': false,
+    },
+    paint: {
+      'text-color': '#ffffff',
+      'text-halo-color': '#000000',
+      'text-halo-width': 1,
+    },
+  });
+
+  map.addLayer({
+    id: TIMESTAMPS_LAYER_ID,
+    type: 'symbol',
+    source: TIMESTAMPS_SOURCE_ID,
+    layout: {
+      'text-field': ['get', 'label'],
+      // Smoothly scales with zoom instead of jumping between fixed sizes.
+      'text-size': ['interpolate', ['linear'], ['zoom'], 10, 8, 14, 11, 18, 15],
+      'text-anchor': 'top',
+      'text-offset': [0, 0.6],
+      // Let Mapbox's own label collision handling thin these out when
+      // zoomed out (rather than every-10-min label overlapping into an
+      // unreadable jumble), and reveal more of them as you zoom in.
+      'text-allow-overlap': false,
+      'text-ignore-placement': false,
     },
     paint: {
       'text-color': '#ffffff',

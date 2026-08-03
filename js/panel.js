@@ -105,11 +105,3 @@ export function renderMoonPanel(container, info) {
     </dl>
   `;
 }
-
-export function renderPathStatus(el, points, windowStart, windowEnd) {
-  if (points.length === 0) {
-    el.textContent = `No valid alignment found between ${fmtDateTime(windowStart)} and ${fmtDateTime(windowEnd)} within the max distance — try widening it or picking a different time.`;
-  } else {
-    el.textContent = `${points.length} alignment points from ${fmtDateTime(points[0].time)} to ${fmtDateTime(points[points.length - 1].time)}.`;
-  }
-}

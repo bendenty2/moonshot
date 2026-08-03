@@ -62,14 +62,6 @@
 
   <main class="layout">
     <aside class="sidebar-pane" aria-label="Tools">
-      <div class="lock-toggle-row">
-        <label class="lock-toggle">
-          <input type="checkbox" id="lock-location-toggle" />
-          <span class="lock-toggle-slider"></span>
-        </label>
-        <span class="lock-toggle-label">Lock location</span>
-      </div>
-
       <button id="set-favourite-btn" class="sidebar-btn" type="button">Set Favourite</button>
 
       <div class="sidebar-section">
@@ -80,24 +72,11 @@
     <div id="map" class="map-pane" aria-label="Alignment map"></div>
     <aside class="panel-pane" aria-label="Moon information">
       <div id="moon-panel"></div>
-
-      <div class="path-bounds">
-        <h3 class="path-bounds-title">Path window</h3>
-        <div class="path-bounds-row">
-          <label for="path-start">Start</label>
-          <input id="path-start" type="time" />
-        </div>
-        <div class="path-bounds-row">
-          <label for="path-end">End</label>
-          <input id="path-end" type="time" />
-        </div>
-        <p id="path-status" class="panel-path-status"></p>
-      </div>
     </aside>
   </main>
 
   <footer class="site-footer">
-    <span class="footer-version">v1.1.6</span>
+    <span class="footer-version">v1.1.7</span>
     <small>&copy; <span id="footer-year">2026</span> Benjamin d'Entremont. All rights reserved.</small>
   </footer>
 
