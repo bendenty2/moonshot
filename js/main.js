@@ -3,36 +3,55 @@ import {
   MAPBOX_STYLE,
   DEFAULT_LANDMARK,
   DEFAULT_TARGET_HEIGHT_FT,
-  DEFAULT_MAX_DISTANCE_MI,
+  DEFAULT_MAX_DISTANCE_KM,
   PATH_STEP_MINUTES,
   LIVE_REFRESH_MS,
-  feetToMeters,
-  milesToMeters,
+  heightToMeters,
+  metersToFeet,
+  kmToMeters,
 } from './config.js';
-import { nextFullMoon } from './astro.js';
+import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js';
 import { computeAlignmentPath } from './alignment.js';
 import { createMap, addLandmarkMarker, onMapClick, renderAlignmentPath, geocode } from './map.js';
-import { computeMoonInfo, renderMoonPanel, renderPathStatus } from './panel.js';
+import { computeMoonInfo, renderMoonPanel, renderPathStatus, formatExactTime } from './panel.js';
+import { createDatePicker } from './datepicker.js';
+import { loadFavourites, addFavourite, renameFavourite, removeFavourite, renderFavourites } from './favourites.js';
 
 const state = {
   landmark: { ...DEFAULT_LANDMARK },
-  targetHeightFt: DEFAULT_TARGET_HEIGHT_FT,
-  maxDistanceMi: DEFAULT_MAX_DISTANCE_MI,
+  targetHeightValue: DEFAULT_TARGET_HEIGHT_FT,
+  heightUnit: 'ft', // 'ft' | 'm'
+  maxDistanceKm: DEFAULT_MAX_DISTANCE_KM,
   timeMode: 'now', // 'now' | 'fullmoon' | 'custom'
   customDate: null,
+  pathStart: null,
+  pathEnd: null,
+  pathBoundsCustomized: false,
+  favourites: loadFavourites(),
+  locationLocked: false,
 };
 
 const panelEl = document.getElementById('moon-panel');
+const pathStatusEl = document.getElementById('path-status');
 const searchInput = document.getElementById('location-search');
 const searchResultsEl = document.getElementById('search-results');
 const heightInput = document.getElementById('target-height');
+const heightUnitBtn = document.getElementById('height-unit');
 const distanceInput = document.getElementById('max-distance');
 const nowBtn = document.getElementById('time-now');
 const fullMoonBtn = document.getElementById('time-fullmoon');
-const customInput = document.getElementById('time-custom');
+const customBtn = document.getElementById('time-custom-btn');
+const pathStartInput = document.getElementById('path-start');
+const pathEndInput = document.getElementById('path-end');
+const footerYearEl = document.getElementById('footer-year');
+const lockToggle = document.getElementById('lock-location-toggle');
+const setFavouriteBtn = document.getElementById('set-favourite-btn');
+const favouritesListEl = document.getElementById('favourites-list');
 
-heightInput.value = state.targetHeightFt;
-distanceInput.value = state.maxDistanceMi;
+heightInput.value = state.targetHeightValue;
+heightUnitBtn.textContent = state.heightUnit;
+distanceInput.value = state.maxDistanceKm;
+footerYearEl.textContent = String(new Date().getFullYear());
 
 const { map, ready } = createMap('map', {
   token: MAPBOX_TOKEN,
@@ -50,44 +69,74 @@ function debounce(fn, ms) {
   };
 }
 
-function getSearchWindow() {
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function toTimeInputValue(date) {
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+}
+
+// Reapplies just the HH:MM from a "HH:MM" string onto originalDate's own
+// calendar day, so narrowing the time doesn't change which day it's on.
+function applyTimeToDate(originalDate, timeStr) {
+  const [h, m] = timeStr.split(':').map(Number);
+  const d = new Date(originalDate);
+  d.setHours(h, m, 0, 0);
+  return d;
+}
+
+function formatPickedDate(date) {
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// The reference instant each time mode is "about" — moonUpWindow() finds the
+// natural moonrise/moonset interval bracketing (or following) this instant.
+function getReferenceDate() {
+  if (state.timeMode === 'now') return new Date();
+  if (state.timeMode === 'fullmoon') return nextFullMoon(new Date());
+  const d = state.customDate || new Date();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+}
+
+function fallbackWindow(refDate) {
   const HALF_DAY_MS = 12 * 60 * 60 * 1000;
+  return { start: new Date(refDate.getTime() - HALF_DAY_MS), end: new Date(refDate.getTime() + HALF_DAY_MS) };
+}
 
-  if (state.timeMode === 'now') {
-    const start = new Date();
-    return { start, end: new Date(start.getTime() + 2 * HALF_DAY_MS) };
-  }
-
-  let center;
-  if (state.timeMode === 'fullmoon') {
-    center = nextFullMoon(new Date());
-  } else {
-    center = state.customDate || new Date();
-  }
-  return { start: new Date(center.getTime() - HALF_DAY_MS), end: new Date(center.getTime() + HALF_DAY_MS) };
+function syncPathBoundsInputs() {
+  pathStartInput.value = toTimeInputValue(state.pathStart);
+  pathEndInput.value = toTimeInputValue(state.pathEnd);
 }
 
 function updatePanel() {
   const info = computeMoonInfo(new Date(), state.landmark);
-  renderMoonPanel(panelEl, info, state.landmark.name);
+  renderMoonPanel(panelEl, info);
 }
 
 function updatePath() {
-  const { start, end } = getSearchWindow();
   const points = computeAlignmentPath({
     landmark: state.landmark,
-    targetHeightM: feetToMeters(state.targetHeightFt),
-    maxDistanceM: milesToMeters(state.maxDistanceMi),
-    windowStart: start,
-    windowEnd: end,
+    targetHeightM: heightToMeters(state.targetHeightValue, state.heightUnit),
+    maxDistanceM: kmToMeters(state.maxDistanceKm),
+    windowStart: state.pathStart,
+    windowEnd: state.pathEnd,
     stepMinutes: PATH_STEP_MINUTES,
   });
   renderAlignmentPath(map, points);
-  renderPathStatus(panelEl, points, start, end);
+  renderPathStatus(pathStatusEl, points, state.pathStart, state.pathEnd);
 }
 
-function recomputeAll() {
-  updatePanel();
+// Recomputes the natural moonrise-to-moonset window for the current landmark
+// + time mode, resets any manual start/end narrowing, and redraws the path.
+function recomputeNaturalWindow() {
+  const observer = makeObserver(state.landmark.lat, state.landmark.lon, 0);
+  const refDate = getReferenceDate();
+  const window = moonUpWindow(refDate, observer) || fallbackWindow(refDate);
+  state.pathStart = window.start;
+  state.pathEnd = window.end;
+  state.pathBoundsCustomized = false;
+  syncPathBoundsInputs();
   updatePath();
 }
 
@@ -95,14 +144,75 @@ function setLandmark(landmark, { flyTo = false } = {}) {
   state.landmark = landmark;
   marker.setLngLat([landmark.lon, landmark.lat]);
   if (flyTo) map.flyTo({ center: [landmark.lon, landmark.lat], zoom: Math.max(map.getZoom(), 14) });
-  recomputeAll();
+  updatePanel();
+  recomputeNaturalWindow();
 }
 
-function setTimeMode(mode) {
-  state.timeMode = mode;
-  nowBtn.classList.toggle('is-active', mode === 'now');
-  fullMoonBtn.classList.toggle('is-active', mode === 'fullmoon');
-  updatePath();
+// ----- favourites -----
+
+function refreshFavouritesUI() {
+  renderFavourites(favouritesListEl, state.favourites, {
+    onSelect: (id) => {
+      const fav = state.favourites.find((f) => f.id === id);
+      if (!fav) return;
+      state.targetHeightValue = fav.heightValue;
+      state.heightUnit = fav.heightUnit;
+      heightInput.value = fav.heightValue;
+      heightUnitBtn.textContent = fav.heightUnit;
+      setLandmark({ name: fav.name, lat: fav.lat, lon: fav.lon }, { flyTo: true });
+    },
+    onRename: (id, name) => {
+      state.favourites = renameFavourite(state.favourites, id, name);
+      refreshFavouritesUI();
+    },
+    onRemove: (id) => {
+      state.favourites = removeFavourite(state.favourites, id);
+      refreshFavouritesUI();
+    },
+  });
+}
+
+setFavouriteBtn.addEventListener('click', () => {
+  state.favourites = addFavourite(state.favourites, {
+    name: state.landmark.name || 'Favourite',
+    lat: state.landmark.lat,
+    lon: state.landmark.lon,
+    heightValue: state.targetHeightValue,
+    heightUnit: state.heightUnit,
+  });
+  refreshFavouritesUI();
+});
+
+lockToggle.addEventListener('change', () => {
+  state.locationLocked = lockToggle.checked;
+});
+
+function activateNow() {
+  state.timeMode = 'now';
+  nowBtn.classList.add('is-active');
+  fullMoonBtn.classList.remove('is-active');
+  customBtn.classList.remove('is-active');
+  customBtn.textContent = 'Custom Date';
+  recomputeNaturalWindow();
+}
+
+function activateFullMoon() {
+  state.timeMode = 'fullmoon';
+  nowBtn.classList.remove('is-active');
+  fullMoonBtn.classList.add('is-active');
+  customBtn.classList.remove('is-active');
+  customBtn.textContent = 'Custom Date';
+  recomputeNaturalWindow();
+}
+
+function activateCustom(date) {
+  state.timeMode = 'custom';
+  state.customDate = date;
+  nowBtn.classList.remove('is-active');
+  fullMoonBtn.classList.remove('is-active');
+  customBtn.classList.add('is-active');
+  customBtn.textContent = formatPickedDate(date);
+  recomputeNaturalWindow();
 }
 
 // ----- location search -----
@@ -149,18 +259,29 @@ heightInput.addEventListener(
   debounce(() => {
     const v = parseFloat(heightInput.value);
     if (Number.isFinite(v) && v >= 0) {
-      state.targetHeightFt = v;
+      state.targetHeightValue = v;
       updatePath();
     }
   }, 300)
 );
+
+heightUnitBtn.addEventListener('click', () => {
+  const newUnit = state.heightUnit === 'ft' ? 'm' : 'ft';
+  const meters = heightToMeters(state.targetHeightValue, state.heightUnit);
+  const displayValue = newUnit === 'ft' ? metersToFeet(meters) : meters;
+  state.heightUnit = newUnit;
+  state.targetHeightValue = Math.round(displayValue * (newUnit === 'ft' ? 1 : 10)) / (newUnit === 'ft' ? 1 : 10);
+  heightInput.value = state.targetHeightValue;
+  heightUnitBtn.textContent = newUnit;
+  updatePath();
+});
 
 distanceInput.addEventListener(
   'input',
   debounce(() => {
     const v = parseFloat(distanceInput.value);
     if (Number.isFinite(v) && v > 0) {
-      state.maxDistanceMi = v;
+      state.maxDistanceKm = v;
       updatePath();
     }
   }, 300)
@@ -168,22 +289,31 @@ distanceInput.addEventListener(
 
 // ----- time controls -----
 
-nowBtn.addEventListener('click', () => {
-  customInput.value = '';
-  setTimeMode('now');
+nowBtn.addEventListener('click', activateNow);
+fullMoonBtn.addEventListener('click', activateFullMoon);
+
+createDatePicker({
+  buttonEl: customBtn,
+  popoverEl: document.getElementById('date-picker-popover'),
+  labelEl: document.getElementById('date-picker-label'),
+  weekdaysEl: document.getElementById('date-picker-weekdays'),
+  daysEl: document.getElementById('date-picker-days'),
+  onSelect: (date) => activateCustom(date),
 });
 
-fullMoonBtn.addEventListener('click', () => {
-  customInput.value = '';
-  setTimeMode('fullmoon');
+// ----- path window (start/end) overrides -----
+
+pathStartInput.addEventListener('change', () => {
+  if (!pathStartInput.value) return;
+  state.pathStart = applyTimeToDate(state.pathStart, pathStartInput.value);
+  state.pathBoundsCustomized = true;
+  updatePath();
 });
 
-customInput.addEventListener('change', () => {
-  if (!customInput.value) return;
-  state.customDate = new Date(customInput.value);
-  state.timeMode = 'custom';
-  nowBtn.classList.remove('is-active');
-  fullMoonBtn.classList.remove('is-active');
+pathEndInput.addEventListener('change', () => {
+  if (!pathEndInput.value) return;
+  state.pathEnd = applyTimeToDate(state.pathEnd, pathEndInput.value);
+  state.pathBoundsCustomized = true;
   updatePath();
 });
 
@@ -195,13 +325,29 @@ ready.then(() => {
   });
 
   onMapClick(map, (lonlat) => {
+    if (state.locationLocked) return;
     setLandmark({ name: 'Custom location', lat: lonlat.lat, lon: lonlat.lon });
   });
 
-  recomputeAll();
+  updatePanel();
+  recomputeNaturalWindow();
 });
+
+refreshFavouritesUI();
 
 setInterval(() => {
   updatePanel();
-  if (state.timeMode === 'now') updatePath();
+  if (state.timeMode === 'now' && !state.pathBoundsCustomized) {
+    recomputeNaturalWindow();
+  } else {
+    updatePath();
+  }
 }, LIVE_REFRESH_MS);
+
+// A proper ticking clock for the "Current time" row specifically — cheap
+// (no astronomy recompute), so it can run every second independent of the
+// slower LIVE_REFRESH_MS cycle that redoes the actual sky math.
+setInterval(() => {
+  const el = document.getElementById('panel-current-time');
+  if (el) el.textContent = formatExactTime(new Date());
+}, 1000);
