@@ -37,6 +37,11 @@ export const TARGET_HEIGHT_RANGE = {
 // Slider bounds for the max-distance control (always km, no unit toggle).
 export const MAX_DISTANCE_RANGE = { min: 0, max: 10, step: 0.1 };
 
+// Slider bounds for the angle-of-inclination control. Kept just off 0/90°
+// (the atan(height/distance) relationship's asymptotes) rather than at the
+// literal max-distance range's own 0 boundary.
+export const ANGLE_RANGE = { min: 0.1, max: 89.9, step: 0.1 };
+
 // Sampling step for walking the alignment path across the search window.
 export const PATH_STEP_MINUTES = 2;
 
@@ -67,6 +72,10 @@ export function metersToFeet(m) {
 
 export function kmToMeters(km) {
   return km * METERS_PER_KM;
+}
+
+export function metersToKm(m) {
+  return m / METERS_PER_KM;
 }
 
 // Converts a target-height value in the given display unit ('ft' | 'm') to meters.

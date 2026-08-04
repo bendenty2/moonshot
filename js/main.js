@@ -6,19 +6,21 @@ import {
   DEFAULT_MAX_DISTANCE_KM,
   TARGET_HEIGHT_RANGE,
   MAX_DISTANCE_RANGE,
+  ANGLE_RANGE,
   PATH_STEP_MINUTES,
   PANEL_REFRESH_MS,
   LIVE_REFRESH_MS,
   heightToMeters,
   metersToFeet,
   kmToMeters,
-} from './config.js?v=1.1.13';
-import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.1.13';
-import { computeAlignmentPath } from './alignment.js?v=1.1.13';
-import { createMap, addLandmarkMarker, onMapClick, renderAlignmentPath, geocode } from './map.js?v=1.1.13';
-import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.1.13';
-import { createDatePicker } from './datepicker.js?v=1.1.13';
-import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.1.13';
+  metersToKm,
+} from './config.js?v=1.1.14';
+import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.1.14';
+import { computeAlignmentPath } from './alignment.js?v=1.1.14';
+import { createMap, addLandmarkMarker, onMapClick, renderAlignmentPath, geocode } from './map.js?v=1.1.14';
+import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.1.14';
+import { createDatePicker } from './datepicker.js?v=1.1.14';
+import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.1.14';
 
 const state = {
   landmark: { ...DEFAULT_LANDMARK },
@@ -43,6 +45,8 @@ const heightInput = document.getElementById('target-height');
 const heightUnitBtn = document.getElementById('height-unit');
 const distanceSlider = document.getElementById('max-distance-slider');
 const distanceInput = document.getElementById('max-distance');
+const angleSlider = document.getElementById('angle-slider');
+const angleInput = document.getElementById('angle-input');
 const nowBtn = document.getElementById('time-now');
 const fullMoonBtn = document.getElementById('time-fullmoon');
 const customBtn = document.getElementById('time-custom-btn');
@@ -68,7 +72,48 @@ distanceSlider.step = MAX_DISTANCE_RANGE.step;
 distanceSlider.value = state.maxDistanceKm;
 distanceInput.value = state.maxDistanceKm;
 
+angleSlider.min = ANGLE_RANGE.min;
+angleSlider.max = ANGLE_RANGE.max;
+angleSlider.step = ANGLE_RANGE.step;
+
 footerYearEl.textContent = String(new Date().getFullYear());
+
+const DEG = Math.PI / 180;
+const RAD = 180 / Math.PI;
+
+// The angle of inclination is a *derived* display of height + max distance
+// (atan(height/distance)) except in the instant the angle control itself is
+// edited, when it becomes the source and distance is derived instead. There
+// is deliberately no state.angleDeg — it's always recomputed from the two
+// values that are the real source of truth.
+function currentHeightM() {
+  return heightToMeters(state.targetHeightValue, state.heightUnit);
+}
+
+function syncAngleFromHeightDistance() {
+  const distanceM = kmToMeters(state.maxDistanceKm);
+  const angle = distanceM > 0 ? Math.atan(currentHeightM() / distanceM) * RAD : ANGLE_RANGE.max;
+  const clamped = Math.min(ANGLE_RANGE.max, Math.max(ANGLE_RANGE.min, angle));
+  angleSlider.value = clamped.toFixed(1);
+  angleInput.value = clamped.toFixed(1);
+}
+
+// Applies a user-edited angle: solves for the distance that would produce
+// it at the current height, clamps that distance to what the max-distance
+// control actually allows, then re-derives the angle from whatever distance
+// was actually applied — so the angle box always shows a value the app can
+// really act on, snapping back if the raw request was out of reach.
+function applyAngleChange(angleDeg) {
+  const clampedAngle = Math.min(ANGLE_RANGE.max, Math.max(ANGLE_RANGE.min, angleDeg));
+  const rawDistanceKm = metersToKm(currentHeightM() / Math.tan(clampedAngle * DEG));
+  state.maxDistanceKm = Math.min(MAX_DISTANCE_RANGE.max, Math.max(MAX_DISTANCE_RANGE.min, rawDistanceKm));
+  distanceSlider.value = state.maxDistanceKm;
+  distanceInput.value = state.maxDistanceKm.toFixed(1);
+  syncAngleFromHeightDistance();
+  updatePath();
+}
+
+syncAngleFromHeightDistance();
 
 const { map, ready } = createMap('map', {
   token: MAPBOX_TOKEN,
@@ -179,6 +224,7 @@ function refreshFavouritesUI() {
       heightUnitBtn.textContent = fav.heightUnit;
       state.activeFavouriteId = id;
       updateStarUI();
+      syncAngleFromHeightDistance();
       setLandmark({ name: fav.name, lat: fav.lat, lon: fav.lon }, { flyTo: true, fromFavourite: true });
     },
     onEdit: (id, updates) => {
@@ -297,6 +343,7 @@ heightInput.addEventListener(
       heightSlider.value = v;
       state.activeFavouriteId = null;
       updateStarUI();
+      syncAngleFromHeightDistance();
       updatePath();
     }
   }, 300)
@@ -310,6 +357,7 @@ heightSlider.addEventListener(
     heightInput.value = v;
     state.activeFavouriteId = null;
     updateStarUI();
+    syncAngleFromHeightDistance();
     updatePath();
   })
 );
@@ -326,6 +374,7 @@ heightUnitBtn.addEventListener('click', () => {
   heightUnitBtn.textContent = newUnit;
   state.activeFavouriteId = null;
   updateStarUI();
+  syncAngleFromHeightDistance();
   updatePath();
 });
 
@@ -336,6 +385,7 @@ distanceInput.addEventListener(
     if (Number.isFinite(v) && v > 0) {
       state.maxDistanceKm = v;
       distanceSlider.value = v;
+      syncAngleFromHeightDistance();
       updatePath();
     }
   }, 300)
@@ -347,7 +397,23 @@ distanceSlider.addEventListener(
     const v = parseFloat(distanceSlider.value);
     state.maxDistanceKm = v;
     distanceInput.value = v;
+    syncAngleFromHeightDistance();
     updatePath();
+  })
+);
+
+angleInput.addEventListener(
+  'input',
+  debounce(() => {
+    const v = parseFloat(angleInput.value);
+    if (Number.isFinite(v)) applyAngleChange(v);
+  }, 300)
+);
+
+angleSlider.addEventListener(
+  'input',
+  rafThrottle(() => {
+    applyAngleChange(parseFloat(angleSlider.value));
   })
 );
 
