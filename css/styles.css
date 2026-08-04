@@ -247,6 +247,7 @@ body {
   color: var(--text);
   padding: 8px 8px;
   font-size: 14px;
+  text-align: center;
   -moz-appearance: textfield;
 }
 
@@ -282,24 +283,33 @@ body {
   margin-left: auto;
   position: relative;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: stretch;
+  align-self: stretch;
+  gap: 4px;
 }
 
 .time-btn {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  padding: 8px 12px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  padding: 0 12px;
   font-size: 13px;
   cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.time-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
 }
 
 .time-btn.is-active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #ffffff;
+  color: var(--text);
+  border-bottom-color: var(--accent);
   font-weight: 500;
 }
 
@@ -307,6 +317,8 @@ body {
 
 .date-picker {
   position: relative;
+  display: flex;
+  align-self: stretch;
 }
 
 .date-picker-popover {
@@ -400,10 +412,12 @@ body {
 }
 
 .sidebar-pane {
-  /* 60% of its original width (which was half the right panel's). */
-  flex: 0.3 1 0;
-  min-width: 84px;
-  max-width: 126px;
+  /* Draggable via .pane-resizer; this is just the starting width (20% more
+     than the previous fixed 126px). */
+  flex: 0 0 auto;
+  width: 151px;
+  min-width: 100px;
+  max-width: 400px;
   padding: 16px 12px;
   display: flex;
   flex-direction: column;
@@ -411,6 +425,32 @@ body {
   overflow-y: auto;
   background: #000000;
   border-right: 1px solid var(--border);
+}
+
+.pane-resizer {
+  flex: 0 0 auto;
+  width: 6px;
+  margin: 0 -3px;
+  cursor: col-resize;
+  position: relative;
+  z-index: 5;
+}
+
+.pane-resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 0;
+  background: var(--accent);
+  transform: translateX(-50%);
+  transition: width 0.1s;
+}
+
+.pane-resizer:hover::after,
+.pane-resizer.is-dragging::after {
+  width: 2px;
 }
 
 /* ===== Sidebar / favourites ===== */
@@ -470,6 +510,10 @@ body {
   width: 100%;
   border-radius: 6px;
   transition: background 0.1s;
+}
+
+.favourite-item.is-active {
+  box-shadow: inset 2px 0 0 0 var(--accent);
 }
 
 .favourite-item:hover {
@@ -580,14 +624,16 @@ body {
 }
 
 .map-pane {
-  flex: 2 1 0;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
 .panel-pane {
-  flex: 1 1 0;
-  min-width: 280px;
-  max-width: 420px;
+  /* Draggable via .pane-resizer; this is just the starting width. */
+  flex: 0 0 auto;
+  width: 420px;
+  min-width: 260px;
+  max-width: 600px;
   padding: 20px;
   overflow-y: auto;
   background: var(--panel-bg);
@@ -634,17 +680,15 @@ body {
 .panel-fact dt { color: var(--text-dim); }
 .panel-fact dd { margin: 0; }
 
+.panel-facts--secondary {
+  margin-top: 16px;
+}
+
 .panel-facts--secondary .panel-fact { font-size: 12px; }
 
 .panel-azimuth-arrow {
   display: inline-block;
   color: var(--accent);
-}
-
-.panel-divider {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 16px 0;
 }
 
 /* ===== Map hover tooltip =====
@@ -706,10 +750,15 @@ body {
     /* Placeholder-only for now — not worth the space on narrow screens. */
     display: none;
   }
+  .pane-resizer {
+    /* Dragging doesn't make sense once the layout stacks into a column. */
+    display: none;
+  }
   .map-pane {
     height: 60vh;
   }
   .panel-pane {
+    width: 100%;
     max-width: none;
     border-left: none;
     border-top: 1px solid var(--border);

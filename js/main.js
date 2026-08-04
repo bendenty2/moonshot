@@ -12,13 +12,13 @@ import {
   heightToMeters,
   metersToFeet,
   kmToMeters,
-} from './config.js?v=1.1.12';
-import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.1.12';
-import { computeAlignmentPath } from './alignment.js?v=1.1.12';
-import { createMap, addLandmarkMarker, onMapClick, renderAlignmentPath, geocode } from './map.js?v=1.1.12';
-import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.1.12';
-import { createDatePicker } from './datepicker.js?v=1.1.12';
-import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.1.12';
+} from './config.js?v=1.1.13';
+import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.1.13';
+import { computeAlignmentPath } from './alignment.js?v=1.1.13';
+import { createMap, addLandmarkMarker, onMapClick, renderAlignmentPath, geocode } from './map.js?v=1.1.13';
+import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.1.13';
+import { createDatePicker } from './datepicker.js?v=1.1.13';
+import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.1.13';
 
 const state = {
   landmark: { ...DEFAULT_LANDMARK },
@@ -91,12 +91,14 @@ function debounce(fn, ms) {
 // redoing the work for every sub-frame 'input' event the browser fires.
 function rafThrottle(fn) {
   let scheduled = false;
+  let lastArgs;
   return (...args) => {
+    lastArgs = args;
     if (scheduled) return;
     scheduled = true;
     requestAnimationFrame(() => {
       scheduled = false;
-      fn(...args);
+      fn(...lastArgs);
     });
   };
 }
@@ -161,14 +163,11 @@ function setLandmark(landmark, { flyTo = false, fromFavourite = false } = {}) {
 
 // ----- favourites -----
 
-function updateStarUI() {
-  const active = state.activeFavouriteId !== null;
-  favouriteStarBtn.textContent = active ? '★' : '☆'; // filled / outline star
-  favouriteStarBtn.classList.toggle('is-active', active);
-}
-
+// Re-renders the favourites list, marking whichever entry (if any) matches
+// state.activeFavouriteId with the vertical accent-bar active style.
 function refreshFavouritesUI() {
   renderFavourites(favouritesListEl, state.favourites, {
+    activeId: state.activeFavouriteId,
     onSelect: (id) => {
       const fav = state.favourites.find((f) => f.id === id);
       if (!fav) return;
@@ -190,11 +189,22 @@ function refreshFavouritesUI() {
       state.favourites = removeFavourite(state.favourites, id);
       if (id === state.activeFavouriteId) {
         state.activeFavouriteId = null;
-        updateStarUI();
+        updateStarUI(); // also re-renders the (now-updated) list
+      } else {
+        refreshFavouritesUI();
       }
-      refreshFavouritesUI();
     },
   });
+}
+
+// Keeps the star icon AND the favourites list's active-row highlight in sync
+// with state.activeFavouriteId — call this (not just the star update alone)
+// any time that id changes, so a favourite row's highlight never goes stale.
+function updateStarUI() {
+  const active = state.activeFavouriteId !== null;
+  favouriteStarBtn.textContent = active ? '★' : '☆'; // filled / outline star
+  favouriteStarBtn.classList.toggle('is-active', active);
+  refreshFavouritesUI();
 }
 
 favouriteStarBtn.addEventListener('click', () => {
@@ -369,6 +379,47 @@ topbarTabs.forEach((tab) => {
     // container coming back from display:none — nudge it to recalculate.
     if (view === 'alignment') requestAnimationFrame(() => map.resize());
   });
+});
+
+// ----- resizable panes -----
+
+function makeResizable(resizerEl, targetEl, { side, min, max }) {
+  let startX = 0;
+  let startWidth = 0;
+
+  const onMouseMove = rafThrottle((e) => {
+    const dx = e.clientX - startX;
+    const delta = side === 'left' ? dx : -dx; // dragging right grows a left-anchored pane, shrinks a right-anchored one
+    const width = Math.min(max, Math.max(min, startWidth + delta));
+    targetEl.style.width = `${width}px`;
+    map.resize();
+  });
+
+  const onMouseUp = () => {
+    resizerEl.classList.remove('is-dragging');
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  };
+
+  resizerEl.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    startX = e.clientX;
+    startWidth = targetEl.getBoundingClientRect().width;
+    resizerEl.classList.add('is-dragging');
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  });
+}
+
+makeResizable(document.getElementById('sidebar-resizer'), document.querySelector('.sidebar-pane'), {
+  side: 'left',
+  min: 100,
+  max: 400,
+});
+makeResizable(document.getElementById('panel-resizer'), document.querySelector('.panel-pane'), {
+  side: 'right',
+  min: 260,
+  max: 600,
 });
 
 // ----- init -----
