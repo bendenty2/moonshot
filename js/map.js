@@ -5,10 +5,12 @@
 const PATH_SOURCE_ID = 'alignment-path';
 const ARROWS_SOURCE_ID = 'alignment-arrows';
 const TIMESTAMPS_SOURCE_ID = 'alignment-timestamps';
+const VIRTUAL_POINT_SOURCE_ID = 'virtual-point';
 const HIT_LAYER_ID = 'alignment-path-hit';
 const LINE_LAYER_ID = 'alignment-path-line';
 const ARROWS_LAYER_ID = 'alignment-arrows-symbol';
 const TIMESTAMPS_LAYER_ID = 'alignment-timestamps-symbol';
+const VIRTUAL_POINT_LAYER_ID = 'virtual-point-pillar';
 
 const LABEL_INTERVAL_MIN = 10;
 
@@ -21,6 +23,52 @@ const RAD = 180 / Math.PI;
 let currentPoints = [];
 let tooltipEl = null;
 
+// Toggles the map between a flat top-down view and a tilted 3D view — a
+// purpose-built replacement for the compass "reset bearing to north" button
+// removed earlier, now covering pitch too (not just bearing) since there's
+// an actual 3D view to reset out of.
+class ViewModeControl {
+  onAdd(map) {
+    this._map = map;
+    this._container = document.createElement('div');
+    this._container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group view-mode-control';
+
+    this._btn2d = document.createElement('button');
+    this._btn2d.type = 'button';
+    this._btn2d.className = 'view-mode-btn is-active';
+    this._btn2d.textContent = '2D';
+    this._btn2d.setAttribute('aria-label', 'Reset to flat 2D view');
+
+    this._btn3d = document.createElement('button');
+    this._btn3d.type = 'button';
+    this._btn3d.className = 'view-mode-btn';
+    this._btn3d.textContent = '3D';
+    this._btn3d.setAttribute('aria-label', 'Tilt to a 3D view');
+
+    this._btn2d.addEventListener('click', () => {
+      map.easeTo({ pitch: 0, bearing: 0 });
+      this._setActive('2d');
+    });
+    this._btn3d.addEventListener('click', () => {
+      map.easeTo({ pitch: 60, bearing: -20 });
+      this._setActive('3d');
+    });
+
+    this._container.append(this._btn2d, this._btn3d);
+    return this._container;
+  }
+
+  onRemove() {
+    this._container.remove();
+    this._map = undefined;
+  }
+
+  _setActive(mode) {
+    this._btn2d.classList.toggle('is-active', mode === '2d');
+    this._btn3d.classList.toggle('is-active', mode === '3d');
+  }
+}
+
 export function createMap(containerId, { token, style, center }) {
   mapboxgl.accessToken = token;
 
@@ -31,6 +79,8 @@ export function createMap(containerId, { token, style, center }) {
     zoom: 15,
   });
   map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
+  map.addControl(new ViewModeControl(), 'bottom-right');
+  map.addControl(new mapboxgl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-left');
 
   const ready = new Promise((resolve) => map.on('load', resolve));
   return { map, ready };
@@ -305,6 +355,62 @@ export function renderAlignmentPath(map, points) {
 
 export function clearAlignmentPath(map) {
   renderAlignmentPath(map, []);
+}
+
+const METERS_PER_DEG_LAT = 111320;
+
+// A small square footprint (a few meters across) centered on the landmark —
+// not meant to be seen from directly above, just wide enough for the
+// fill-extrusion pillar built on it to read clearly once the map is tilted.
+function pillarFootprint(landmark, radiusM = 1.5) {
+  const dLat = radiusM / METERS_PER_DEG_LAT;
+  const dLon = radiusM / (METERS_PER_DEG_LAT * Math.cos(landmark.lat * DEG));
+  const { lat, lon } = landmark;
+  return [
+    [lon - dLon, lat - dLat],
+    [lon + dLon, lat - dLat],
+    [lon + dLon, lat + dLat],
+    [lon - dLon, lat + dLat],
+    [lon - dLon, lat - dLat],
+  ];
+}
+
+// Mapbox's Marker class has no way to anchor at a real-world altitude
+// (that requires terrain + the still-experimental line-z-offset family of
+// properties). fill-extrusion is mature and stable and needs neither: a
+// thin vertical pillar from the ground up to the target height reads as
+// "the virtual point is right here, this high up" once the map is tilted
+// into 3D — at pitch 0 it's invisible-by-design (just its flat footprint).
+export function renderVirtualPoint(map, landmark, heightM) {
+  const data = {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [pillarFootprint(landmark)] },
+        properties: { height: heightM },
+      },
+    ],
+  };
+
+  const source = map.getSource(VIRTUAL_POINT_SOURCE_ID);
+  if (source) {
+    source.setData(data);
+    return;
+  }
+
+  map.addSource(VIRTUAL_POINT_SOURCE_ID, { type: 'geojson', data });
+  map.addLayer({
+    id: VIRTUAL_POINT_LAYER_ID,
+    type: 'fill-extrusion',
+    source: VIRTUAL_POINT_SOURCE_ID,
+    paint: {
+      'fill-extrusion-color': '#2d4a9e',
+      'fill-extrusion-height': ['get', 'height'],
+      'fill-extrusion-base': 0,
+      'fill-extrusion-opacity': 0.9,
+    },
+  });
 }
 
 export async function geocode(query, token, proximity) {

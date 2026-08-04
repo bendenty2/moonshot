@@ -14,13 +14,13 @@ import {
   metersToFeet,
   kmToMeters,
   metersToKm,
-} from './config.js?v=1.1.14';
-import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.1.14';
-import { computeAlignmentPath } from './alignment.js?v=1.1.14';
-import { createMap, addLandmarkMarker, onMapClick, renderAlignmentPath, geocode } from './map.js?v=1.1.14';
-import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.1.14';
-import { createDatePicker } from './datepicker.js?v=1.1.14';
-import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.1.14';
+} from './config.js?v=1.1.15';
+import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.1.15';
+import { computeAlignmentPath } from './alignment.js?v=1.1.15';
+import { createMap, addLandmarkMarker, onMapClick, renderAlignmentPath, renderVirtualPoint, geocode } from './map.js?v=1.1.15';
+import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.1.15';
+import { createDatePicker } from './datepicker.js?v=1.1.15';
+import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.1.15';
 
 const state = {
   landmark: { ...DEFAULT_LANDMARK },
@@ -172,15 +172,17 @@ function updatePanel() {
 }
 
 function updatePath() {
+  const targetHeightM = heightToMeters(state.targetHeightValue, state.heightUnit);
   const points = computeAlignmentPath({
     landmark: state.landmark,
-    targetHeightM: heightToMeters(state.targetHeightValue, state.heightUnit),
+    targetHeightM,
     maxDistanceM: kmToMeters(state.maxDistanceKm),
     windowStart: state.pathStart,
     windowEnd: state.pathEnd,
     stepMinutes: PATH_STEP_MINUTES,
   });
   renderAlignmentPath(map, points);
+  renderVirtualPoint(map, state.landmark, targetHeightM);
 }
 
 // Recomputes the natural moonrise-to-moonset window for the current landmark
