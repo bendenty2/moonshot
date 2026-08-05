@@ -10,8 +10,18 @@
   <link rel="canonical" href="https://moonshot.bendentremont.com/" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%232d4a9e%22/></svg>" />
 
+  <!-- Sets the theme attribute synchronously, before first paint, so a
+       stored "light" preference doesn't flash dark for a frame while
+       js/main.js (a deferred module) loads. Duplicates theme.js's storage
+       key deliberately — that module isn't loaded yet at this point. -->
+  <script>
+    try {
+      if (localStorage.getItem('moonshot.theme') === 'light') document.documentElement.dataset.theme = 'light';
+    } catch (e) {}
+  </script>
+
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.28.0/mapbox-gl.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=1.2.4" />
+  <link rel="stylesheet" href="css/styles.css?v=1.2.5" />
   <!-- Self-hosted DM Sans (see @font-face in styles.css). Preload the primary
        latin file so text paints in the real face without a Google round-trip. -->
   <link rel="preload" href="fonts/dmsans-latin.woff2" as="font" type="font/woff2" crossorigin />
@@ -24,6 +34,7 @@
       <button type="button" class="topbar-tab is-active" data-view="alignment">Moon Alignment</button>
       <button type="button" class="topbar-tab" data-view="pov-arc">POV Arc</button>
     </nav>
+    <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to light mode" title="Switch to light mode">&#9789;</button>
   </header>
 
   <div id="view-alignment" class="view is-active">
@@ -91,12 +102,12 @@
   </div>
 
   <footer class="site-footer">
-    <span class="footer-version">v1.2.4</span>
+    <span class="footer-version">v1.2.5</span>
     <small>&copy; <span id="footer-year">2026</span> Benjamin d'Entremont. All rights reserved.</small>
   </footer>
 
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.28.0/mapbox-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
-  <script type="module" src="js/main.js?v=1.2.4"></script>
+  <script type="module" src="js/main.js?v=1.2.5"></script>
 </body>
 </html>

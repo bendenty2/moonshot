@@ -12,13 +12,14 @@ import {
   heightToMeters,
   metersToFeet,
   kmToMeters,
-} from './config.js?v=1.2.4';
-import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.2.4';
-import { computeAlignmentPath } from './alignment.js?v=1.2.4';
-import { createMap, addLandmarkMarker, onMapClick, addBuildingsAndTerrain, renderAlignmentPath, renderVirtualPoint, geocode } from './map.js?v=1.2.4';
-import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.2.4';
-import { createDatePicker } from './datepicker.js?v=1.2.4';
-import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.2.4';
+} from './config.js?v=1.2.5';
+import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.2.5';
+import { computeAlignmentPath } from './alignment.js?v=1.2.5';
+import { createMap, addLandmarkMarker, onMapClick, addBuildingsAndTerrain, renderAlignmentPath, renderVirtualPoint, geocode, setMapTheme } from './map.js?v=1.2.5';
+import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.2.5';
+import { createDatePicker } from './datepicker.js?v=1.2.5';
+import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.2.5';
+import { loadTheme, saveTheme } from './theme.js?v=1.2.5';
 
 const state = {
   landmark: { ...DEFAULT_LANDMARK },
@@ -33,6 +34,7 @@ const state = {
   // The favourite (if any) that the current landmark + target height were
   // just loaded from — drives the star's filled/unfilled state.
   activeFavouriteId: null,
+  theme: loadTheme(), // 'dark' | 'light'
 };
 
 const panelEl = document.getElementById('moon-panel');
@@ -49,6 +51,7 @@ const customBtn = document.getElementById('time-custom-btn');
 const footerYearEl = document.getElementById('footer-year');
 const favouriteStarBtn = document.getElementById('favourite-star-btn');
 const favouritesListEl = document.getElementById('favourites-list');
+const themeToggleBtn = document.getElementById('theme-toggle');
 
 function applyHeightRange(unit) {
   const range = TARGET_HEIGHT_RANGE[unit];
@@ -70,10 +73,36 @@ distanceInput.value = state.maxDistanceKm;
 
 footerYearEl.textContent = String(new Date().getFullYear());
 
+// index.html's inline anti-flash script may have already set this (for a
+// stored 'light' preference) before this module even loaded — setting it
+// again here for the 'dark' case is a harmless no-op, and keeps this the
+// single place that owns applying state.theme to the DOM going forward.
+document.documentElement.dataset.theme = state.theme;
+
+function updateThemeToggleUI() {
+  const isLight = state.theme === 'light';
+  themeToggleBtn.innerHTML = isLight ? '&#9728;' : '&#9789;'; // sun / crescent moon
+  const label = `Switch to ${isLight ? 'dark' : 'light'} mode`;
+  themeToggleBtn.setAttribute('aria-label', label);
+  themeToggleBtn.title = label;
+}
+
+updateThemeToggleUI();
+
 const { map, ready } = createMap('map', {
   token: MAPBOX_TOKEN,
   style: MAPBOX_STYLE,
   center: state.landmark,
+});
+
+let mapIsReady = false;
+
+themeToggleBtn.addEventListener('click', () => {
+  state.theme = state.theme === 'light' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = state.theme;
+  saveTheme(state.theme);
+  updateThemeToggleUI();
+  if (mapIsReady) setMapTheme(map, state.theme);
 });
 
 let marker;
@@ -441,7 +470,9 @@ makeResizable(document.getElementById('panel-resizer'), document.querySelector('
 // ----- init -----
 
 ready.then(() => {
+  mapIsReady = true;
   addBuildingsAndTerrain(map);
+  setMapTheme(map, state.theme);
 
   marker = addLandmarkMarker(map, state.landmark, (lonlat) => {
     setLandmark({ name: 'Custom location', lat: lonlat.lat, lon: lonlat.lon });

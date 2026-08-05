@@ -15,6 +15,17 @@ const TERRAIN_SOURCE_ID = 'mapbox-dem';
 
 const LABEL_INTERVAL_MIN = 10;
 
+// Every Standard-style basemap config property that renders text on the map
+// — grouped under the legend's single "Labels" toggle so business/landmark
+// names, street names, town/district/region names, and transit-station
+// names all show or hide together instead of needing separate switches.
+const LABEL_CONFIG_PROPERTIES = [
+  'showPointOfInterestLabels',
+  'showRoadLabels',
+  'showPlaceLabels',
+  'showTransitLabels',
+];
+
 const DEG = Math.PI / 180;
 const RAD = 180 / Math.PI;
 
@@ -32,7 +43,7 @@ class ViewModeControl {
   onAdd(map) {
     this._map = map;
     this._container = document.createElement('div');
-    this._container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group view-mode-control';
+    this._container.className = 'mapboxgl-ctrl view-mode-control';
 
     this._btn2d = document.createElement('button');
     this._btn2d.type = 'button';
@@ -81,10 +92,11 @@ class ViewModeControl {
 // manual edit, unless the owner opts back into the old auto-fill behavior.
 let autoHeightEnabled = false;
 
-// Top-left legend: toggles for the Standard style's basemap label config,
-// plus the app-level "set height automatically" preference. Pinch/scroll-
-// wheel zoom covers zooming (no +/- buttons anymore), so this and the
-// view-mode control are the map's only chrome besides the scale bar.
+// Top-left legend: a single toggle for all of the Standard style's basemap
+// text (see LABEL_CONFIG_PROPERTIES above), plus the app-level "set height
+// automatically" preference. Pinch/scroll-wheel zoom covers zooming (no
+// +/- buttons anymore), so this and the view-mode control are the map's
+// only chrome besides the scale bar.
 class LegendControl {
   onAdd(map) {
     this._map = map;
@@ -93,17 +105,10 @@ class LegendControl {
     this._container.innerHTML = `
       <label class="legend-row">
         <span class="legend-toggle">
-          <input type="checkbox" class="legend-checkbox" data-config="showPointOfInterestLabels" checked />
+          <input type="checkbox" class="legend-checkbox" data-config-group="labels" checked />
           <span class="legend-slider"></span>
         </span>
-        <span class="legend-label">Business &amp; landmark labels</span>
-      </label>
-      <label class="legend-row">
-        <span class="legend-toggle">
-          <input type="checkbox" class="legend-checkbox" data-config="showRoadLabels" checked />
-          <span class="legend-slider"></span>
-        </span>
-        <span class="legend-label">Street names</span>
+        <span class="legend-label">Labels</span>
       </label>
       <label class="legend-row">
         <span class="legend-toggle">
@@ -114,10 +119,8 @@ class LegendControl {
       </label>
     `;
 
-    this._container.querySelectorAll('.legend-checkbox[data-config]').forEach((checkbox) => {
-      checkbox.addEventListener('change', () => {
-        map.setConfigProperty('basemap', checkbox.dataset.config, checkbox.checked);
-      });
+    this._container.querySelector('.legend-checkbox[data-config-group="labels"]').addEventListener('change', (e) => {
+      LABEL_CONFIG_PROPERTIES.forEach((prop) => map.setConfigProperty('basemap', prop, e.target.checked));
     });
 
     this._container.querySelector('.legend-checkbox[data-pref="autoHeight"]').addEventListener('change', (e) => {
@@ -167,11 +170,9 @@ export function addLandmarkMarker(map, lonlat, onDragEnd) {
 // as you pan/zoom — unlike buildings below, which cost nothing extra).
 // Standard renders 3D buildings natively, so there's no custom layer to add
 // here anymore (a hand-rolled fill-extrusion layer, like Moonshot used on
-// the classic dark-v11 style, would just double them up). 'night' is set
-// as the default lightPreset since the style's own default reads far
-// lighter/whiter than fits the app's dark theme — 'theme' (default/faded/
-// monochrome) is another available lever if 'night' alone isn't enough.
-// Call once, after the map's 'load' event.
+// the classic dark-v11 style, would just double them up). Doesn't touch
+// lightPreset — that's driven by the site-wide theme toggle, see
+// setMapTheme below. Call once, after the map's 'load' event.
 export function addBuildingsAndTerrain(map) {
   map.addSource(TERRAIN_SOURCE_ID, {
     type: 'raster-dem',
@@ -180,7 +181,16 @@ export function addBuildingsAndTerrain(map) {
     maxzoom: 14,
   });
   map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1.0 });
-  map.setConfigProperty('basemap', 'lightPreset', 'night');
+}
+
+// Follows the site-wide light/dark theme toggle: Standard's own lightPreset
+// config is the lever for the basemap's actual color scheme (its default
+// reads far lighter/whiter than either of the app's own themes want).
+// 'theme' (default/faded/monochrome) is another available lever if
+// lightPreset alone ever isn't enough. Call once after 'load', and again
+// on every theme toggle.
+export function setMapTheme(map, theme) {
+  map.setConfigProperty('basemap', 'lightPreset', theme === 'light' ? 'day' : 'night');
 }
 
 // Fires on every map click with the clicked lng/lat, plus that spot's real
