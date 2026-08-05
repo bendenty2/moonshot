@@ -5,7 +5,11 @@
 // dev.moonshot.bendentremont.com, and localhost.
 export const MAPBOX_TOKEN = 'pk.eyJ1IjoiYmVuZGVudHJlbW9udCIsImEiOiJjbXNjMjlraDkxaXJiMzVwcGozMnFuNXJ2In0.b3E8CuU6PSuqgm0engM3Vw';
 
-export const MAPBOX_STYLE = 'mapbox://styles/mapbox/dark-v11';
+// EXPERIMENT (branch: experiment/standard-style): comparing Mapbox's newer
+// Standard style (native 3D buildings + dynamic day/dusk/night/dawn
+// lighting) against the current dark-v11 classic style. Not merged to dev —
+// swap back to 'mapbox://styles/mapbox/dark-v11' if this doesn't ship.
+export const MAPBOX_STYLE = 'mapbox://styles/mapbox/standard';
 
 // Default landmark shown on first load: CN Tower, Toronto.
 export const DEFAULT_LANDMARK = {

@@ -117,40 +117,28 @@ export function addBuildingsAndTerrain(map) {
   });
   map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1.0 });
 
-  // Insert buildings just below the first text-label layer, so labels stay
-  // legible on top instead of getting buried under building geometry.
-  const labelLayer = map.getStyle().layers.find((l) => l.type === 'symbol' && l.layout && l.layout['text-field']);
-
-  map.addLayer(
-    {
-      id: BUILDINGS_LAYER_ID,
-      source: 'composite',
-      'source-layer': 'building',
-      filter: ['==', 'extrude', 'true'],
-      type: 'fill-extrusion',
-      // 13 is the practical floor, not an arbitrary choice: Mapbox's own
-      // building data in this tileset only starts existing at zoom 13
-      // (large/prominent buildings; full coverage by 16), so anything lower
-      // would just be an empty layer with no data to render.
-      minzoom: 13,
-      paint: {
-        'fill-extrusion-color': '#5a6472',
-        'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 13, 0, 13.05, ['get', 'height']],
-        'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 13, 0, 13.05, ['get', 'min_height']],
-        'fill-extrusion-opacity': 0.85,
-      },
-    },
-    labelLayer?.id
-  );
+  // EXPERIMENT (branch: experiment/standard-style): Standard renders 3D
+  // buildings natively — adding our own composite/building fill-extrusion
+  // on top would double them up. Skipped here; onMapClick below degrades
+  // gracefully (building height always null) since it can't query a layer
+  // that doesn't exist on this branch. Restore this block when swapping
+  // back to a classic style like dark-v11.
+  //
+  // const labelLayer = map.getStyle().layers.find((l) => l.type === 'symbol' && l.layout && l.layout['text-field']);
+  // map.addLayer({ id: BUILDINGS_LAYER_ID, source: 'composite', 'source-layer': 'building', ... }, labelLayer?.id);
 }
 
 // Fires on every map click with the clicked lng/lat, plus that spot's real
 // building height in meters (from the 3D buildings layer) if a building was
-// actually clicked — null otherwise (open ground, or zoomed out past the
-// buildings layer's minzoom so nothing is rendered there to hit).
+// actually clicked — null otherwise (open ground, zoomed out past the
+// buildings layer's minzoom, or — on this experiment branch — the buildings
+// layer not existing at all, since Standard's native buildings aren't
+// queryable the same way; see addBuildingsAndTerrain above).
 export function onMapClick(map, handler) {
   map.on('click', (e) => {
-    const hit = map.queryRenderedFeatures(e.point, { layers: [BUILDINGS_LAYER_ID] })[0];
+    const hit = map.getLayer(BUILDINGS_LAYER_ID)
+      ? map.queryRenderedFeatures(e.point, { layers: [BUILDINGS_LAYER_ID] })[0]
+      : undefined;
     const buildingHeightM = hit ? hit.properties.height : null;
     handler({ lat: e.lngLat.lat, lon: e.lngLat.lng, buildingHeightM });
   });
