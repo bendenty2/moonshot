@@ -20,9 +20,12 @@ export const DEFAULT_LANDMARK = {
   lon: -79.3871,
 };
 
-// Virtual target point elevation, in feet above the landmark's base.
-// ~1900 ft puts a full moon reading just above the CN Tower's spire.
-export const DEFAULT_TARGET_HEIGHT_FT = 1900;
+// Virtual target point elevation, in feet above the landmark's base. A plain
+// starting default (not tied to any particular landmark) — the owner edits
+// it manually or picks a favourite; the old auto-fill-from-clicked-building
+// behavior is now opt-in (see the "Set height automatically" legend toggle
+// in map.js).
+export const DEFAULT_TARGET_HEIGHT_FT = 500;
 
 // Observer eye-level elevation above sea level. v1 assumes flat terrain
 // at sea level (see brief section 6) rather than looking up local ground elevation.

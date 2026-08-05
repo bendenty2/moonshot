@@ -48,12 +48,16 @@ class ViewModeControl {
 
     this._btn2d.addEventListener('click', () => {
       map.easeTo({ pitch: 0, bearing: 0 });
-      this._setActive('2d');
     });
     this._btn3d.addEventListener('click', () => {
       map.easeTo({ pitch: 60, bearing: -20 });
-      this._setActive('3d');
     });
+
+    // Single source of truth for the active button: driven off the map's
+    // actual pitch rather than only the two buttons above, so manually
+    // dragging into/out of a tilted view (right-click drag, two-finger
+    // touch) keeps the control in sync too, not just clicking the buttons.
+    map.on('pitch', () => this._setActive(map.getPitch() > 0 ? '3d' : '2d'));
 
     this._container.append(this._btn2d, this._btn3d);
     return this._container;
@@ -70,9 +74,17 @@ class ViewModeControl {
   }
 }
 
-// Top-left legend: toggles for the Standard style's basemap label config.
-// Pinch/scroll-wheel zoom covers zooming (no +/- buttons anymore), so this
-// and the view-mode control are the map's only chrome besides the scale bar.
+// Whether a building click should auto-fill the target-height slider with
+// that building's real height — the "Set height automatically" legend
+// toggle below. Off by default: the target height now just starts at
+// DEFAULT_TARGET_HEIGHT_FT and only otherwise changes via a favourite or a
+// manual edit, unless the owner opts back into the old auto-fill behavior.
+let autoHeightEnabled = false;
+
+// Top-left legend: toggles for the Standard style's basemap label config,
+// plus the app-level "set height automatically" preference. Pinch/scroll-
+// wheel zoom covers zooming (no +/- buttons anymore), so this and the
+// view-mode control are the map's only chrome besides the scale bar.
 class LegendControl {
   onAdd(map) {
     this._map = map;
@@ -93,12 +105,23 @@ class LegendControl {
         </span>
         <span class="legend-label">Street names</span>
       </label>
+      <label class="legend-row">
+        <span class="legend-toggle">
+          <input type="checkbox" class="legend-checkbox" data-pref="autoHeight" />
+          <span class="legend-slider"></span>
+        </span>
+        <span class="legend-label">Set height automatically</span>
+      </label>
     `;
 
-    this._container.querySelectorAll('.legend-checkbox').forEach((checkbox) => {
+    this._container.querySelectorAll('.legend-checkbox[data-config]').forEach((checkbox) => {
       checkbox.addEventListener('change', () => {
         map.setConfigProperty('basemap', checkbox.dataset.config, checkbox.checked);
       });
+    });
+
+    this._container.querySelector('.legend-checkbox[data-pref="autoHeight"]').addEventListener('change', (e) => {
+      autoHeightEnabled = e.target.checked;
     });
 
     return this._container;
@@ -161,11 +184,13 @@ export function addBuildingsAndTerrain(map) {
 }
 
 // Fires on every map click with the clicked lng/lat, plus that spot's real
-// building height in meters if a building was actually clicked — null
-// otherwise. Standard's native buildings aren't queryable via the classic
-// queryRenderedFeatures (no stable layer id to target), so this uses the
-// newer Interactions/Featureset API instead (requires Mapbox GL JS 3.28+;
-// degrades to always-null height on older versions rather than throwing).
+// building height in meters if a building was actually clicked AND the
+// "Set height automatically" legend toggle is on — null otherwise (either
+// no building was under the click, or the toggle is off). Standard's native
+// buildings aren't queryable via the classic queryRenderedFeatures (no
+// stable layer id to target), so this uses the newer Interactions/Featureset
+// API instead (requires Mapbox GL JS 3.28+; degrades to always-null height
+// on older versions rather than throwing).
 //
 // The building-targeted interaction and the plain map click are two
 // separate Mapbox event systems firing off the same physical click, and
@@ -190,7 +215,7 @@ export function onMapClick(map, handler) {
     setTimeout(() => {
       const buildingHeightM = pendingBuildingHeight;
       pendingBuildingHeight = null;
-      handler({ lat, lon: lng, buildingHeightM });
+      handler({ lat, lon: lng, buildingHeightM: autoHeightEnabled ? buildingHeightM : null });
     }, 0);
   });
 }
