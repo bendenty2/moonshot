@@ -2,6 +2,9 @@ import {
   MAPBOX_TOKEN,
   MAPBOX_STYLE,
   DEFAULT_LANDMARK,
+  DEFAULT_MAP_ZOOM,
+  DEFAULT_MAP_PITCH,
+  DEFAULT_MAP_BEARING,
   DEFAULT_TARGET_HEIGHT_FT,
   DEFAULT_MAX_DISTANCE_KM,
   TARGET_HEIGHT_RANGE,
@@ -12,14 +15,14 @@ import {
   heightToMeters,
   metersToFeet,
   kmToMeters,
-} from './config.js?v=1.2.5';
-import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.2.5';
-import { computeAlignmentPath } from './alignment.js?v=1.2.5';
-import { createMap, addLandmarkMarker, onMapClick, addBuildingsAndTerrain, renderAlignmentPath, renderVirtualPoint, geocode, setMapTheme } from './map.js?v=1.2.5';
-import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.2.5';
-import { createDatePicker } from './datepicker.js?v=1.2.5';
-import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.2.5';
-import { loadTheme, saveTheme } from './theme.js?v=1.2.5';
+} from './config.js?v=1.2.6';
+import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.2.6';
+import { computeAlignmentPath } from './alignment.js?v=1.2.6';
+import { createMap, addLandmarkMarker, onMapClick, addBuildingsAndTerrain, renderAlignmentPath, renderVirtualPoint, geocode, setMapTheme } from './map.js?v=1.2.6';
+import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.2.6';
+import { createDatePicker } from './datepicker.js?v=1.2.6';
+import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.2.6';
+import { loadTheme, saveTheme } from './theme.js?v=1.2.6';
 
 const state = {
   landmark: { ...DEFAULT_LANDMARK },
@@ -51,7 +54,8 @@ const customBtn = document.getElementById('time-custom-btn');
 const footerYearEl = document.getElementById('footer-year');
 const favouriteStarBtn = document.getElementById('favourite-star-btn');
 const favouritesListEl = document.getElementById('favourites-list');
-const themeToggleBtn = document.getElementById('theme-toggle');
+const themeDarkBtn = document.getElementById('theme-dark-btn');
+const themeLightBtn = document.getElementById('theme-light-btn');
 
 function applyHeightRange(unit) {
   const range = TARGET_HEIGHT_RANGE[unit];
@@ -81,10 +85,8 @@ document.documentElement.dataset.theme = state.theme;
 
 function updateThemeToggleUI() {
   const isLight = state.theme === 'light';
-  themeToggleBtn.innerHTML = isLight ? '&#9728;' : '&#9789;'; // sun / crescent moon
-  const label = `Switch to ${isLight ? 'dark' : 'light'} mode`;
-  themeToggleBtn.setAttribute('aria-label', label);
-  themeToggleBtn.title = label;
+  themeDarkBtn.classList.toggle('is-active', !isLight);
+  themeLightBtn.classList.toggle('is-active', isLight);
 }
 
 updateThemeToggleUI();
@@ -93,17 +95,24 @@ const { map, ready } = createMap('map', {
   token: MAPBOX_TOKEN,
   style: MAPBOX_STYLE,
   center: state.landmark,
+  zoom: DEFAULT_MAP_ZOOM,
+  pitch: DEFAULT_MAP_PITCH,
+  bearing: DEFAULT_MAP_BEARING,
 });
 
 let mapIsReady = false;
 
-themeToggleBtn.addEventListener('click', () => {
-  state.theme = state.theme === 'light' ? 'dark' : 'light';
-  document.documentElement.dataset.theme = state.theme;
-  saveTheme(state.theme);
+function setTheme(theme) {
+  if (theme === state.theme) return;
+  state.theme = theme;
+  document.documentElement.dataset.theme = theme;
+  saveTheme(theme);
   updateThemeToggleUI();
-  if (mapIsReady) setMapTheme(map, state.theme);
-});
+  if (mapIsReady) setMapTheme(map, theme);
+}
+
+themeDarkBtn.addEventListener('click', () => setTheme('dark'));
+themeLightBtn.addEventListener('click', () => setTheme('light'));
 
 let marker;
 

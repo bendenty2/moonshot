@@ -20,6 +20,13 @@ export const DEFAULT_LANDMARK = {
   lon: -79.3871,
 };
 
+// The map's initial camera — a tilted, zoomed-in 3D framing of the default
+// landmark (rather than a flat top-down start), matching the same
+// pitch/bearing the "3D" view-mode button eases to.
+export const DEFAULT_MAP_ZOOM = 16.2;
+export const DEFAULT_MAP_PITCH = 60;
+export const DEFAULT_MAP_BEARING = -20;
+
 // Virtual target point elevation, in feet above the landmark's base.
 // ~1900 ft puts a full moon reading just above the CN Tower's spire — the
 // standard opening location + height the app always starts at. From here,

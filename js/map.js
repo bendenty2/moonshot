@@ -69,6 +69,11 @@ class ViewModeControl {
     // dragging into/out of a tilted view (right-click drag, two-finger
     // touch) keeps the control in sync too, not just clicking the buttons.
     map.on('pitch', () => this._setActive(map.getPitch() > 0 ? '3d' : '2d'));
+    // The map now opens already tilted (see DEFAULT_MAP_PITCH in config.js),
+    // and that initial camera doesn't fire a 'pitch' event — set the
+    // control's own initial state explicitly so it doesn't start out of
+    // sync showing "2D" active while the map is actually tilted into 3D.
+    this._setActive(map.getPitch() > 0 ? '3d' : '2d');
 
     this._container.append(this._btn2d, this._btn3d);
     return this._container;
@@ -136,14 +141,16 @@ class LegendControl {
   }
 }
 
-export function createMap(containerId, { token, style, center }) {
+export function createMap(containerId, { token, style, center, zoom = 15, pitch = 0, bearing = 0 }) {
   mapboxgl.accessToken = token;
 
   const map = new mapboxgl.Map({
     container: containerId,
     style,
     center: [center.lon, center.lat],
-    zoom: 15,
+    zoom,
+    pitch,
+    bearing,
   });
   map.addControl(new LegendControl(), 'top-left');
   map.addControl(new ViewModeControl(), 'bottom-right');
