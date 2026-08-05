@@ -11,6 +11,8 @@ const LINE_LAYER_ID = 'alignment-path-line';
 const ARROWS_LAYER_ID = 'alignment-arrows-symbol';
 const TIMESTAMPS_LAYER_ID = 'alignment-timestamps-symbol';
 const VIRTUAL_POINT_LAYER_ID = 'virtual-point-pillar';
+const BUILDINGS_LAYER_ID = '3d-buildings';
+const TERRAIN_SOURCE_ID = 'mapbox-dem';
 
 const LABEL_INTERVAL_MIN = 10;
 
@@ -99,8 +101,55 @@ export function addLandmarkMarker(map, lonlat, onDragEnd) {
   return marker;
 }
 
+// 3D building extrusions (real building footprints + heights, already present
+// in the same vector tiles the base map uses — no extra requests) plus
+// ground terrain (a separate raster-DEM tileset, so this part does add some
+// tile fetching as you pan/zoom). Both are mature, stable Mapbox GL JS
+// features — unlike true point/marker altitude, which currently has no
+// non-experimental API (see the virtual-point pillar's own comment).
+// Call once, after the map's 'load' event.
+export function addBuildingsAndTerrain(map) {
+  map.addSource(TERRAIN_SOURCE_ID, {
+    type: 'raster-dem',
+    url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+    tileSize: 512,
+    maxzoom: 14,
+  });
+  map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1.0 });
+
+  // Insert buildings just below the first text-label layer, so labels stay
+  // legible on top instead of getting buried under building geometry.
+  const labelLayer = map.getStyle().layers.find((l) => l.type === 'symbol' && l.layout && l.layout['text-field']);
+
+  map.addLayer(
+    {
+      id: BUILDINGS_LAYER_ID,
+      source: 'composite',
+      'source-layer': 'building',
+      filter: ['==', 'extrude', 'true'],
+      type: 'fill-extrusion',
+      minzoom: 14,
+      paint: {
+        'fill-extrusion-color': '#5a6472',
+        'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.05, ['get', 'height']],
+        'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.05, ['get', 'min_height']],
+        'fill-extrusion-opacity': 0.85,
+      },
+    },
+    labelLayer?.id
+  );
+}
+
+// Fires on every map click with the clicked lng/lat, plus that spot's real
+// building height in meters (from the 3D buildings layer) if a building was
+// actually clicked — null otherwise (open ground, or zoomed out past the
+// buildings layer's minzoom so nothing is rendered there to hit).
 export function onMapClick(map, handler) {
-  map.on('click', (e) => handler({ lat: e.lngLat.lat, lon: e.lngLat.lng }));
+  map.on('click', (e) => {
+    const hit = map.queryRenderedFeatures(e.point, { layers: [BUILDINGS_LAYER_ID] })[0];
+    const buildingHeightM = hit ? hit.properties.height : null;
+    handler({ lat: e.lngLat.lat, lon: e.lngLat.lng, buildingHeightM });
+  });
 }
 
 function formatTooltipTime(date) {

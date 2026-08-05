@@ -12,13 +12,13 @@ import {
   heightToMeters,
   metersToFeet,
   kmToMeters,
-} from './config.js?v=1.1.16';
-import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.1.16';
-import { computeAlignmentPath } from './alignment.js?v=1.1.16';
-import { createMap, addLandmarkMarker, onMapClick, renderAlignmentPath, renderVirtualPoint, geocode } from './map.js?v=1.1.16';
-import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.1.16';
-import { createDatePicker } from './datepicker.js?v=1.1.16';
-import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.1.16';
+} from './config.js?v=1.2.1';
+import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.2.1';
+import { computeAlignmentPath } from './alignment.js?v=1.2.1';
+import { createMap, addLandmarkMarker, onMapClick, addBuildingsAndTerrain, renderAlignmentPath, renderVirtualPoint, geocode } from './map.js?v=1.2.1';
+import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.2.1';
+import { createDatePicker } from './datepicker.js?v=1.2.1';
+import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.2.1';
 
 const state = {
   landmark: { ...DEFAULT_LANDMARK },
@@ -161,6 +161,20 @@ function setLandmark(landmark, { flyTo = false, fromFavourite = false } = {}) {
   }
   updatePanel();
   recomputeNaturalWindow();
+}
+
+// Applies a real building height (meters, from clicking a 3D building) as
+// the target height, converting to whichever unit is currently displayed.
+// Doesn't call updatePath itself — meant to be called right before
+// setLandmark, which already triggers the one recompute this needs.
+function applyBuildingHeight(heightM) {
+  const displayValue = state.heightUnit === 'ft' ? metersToFeet(heightM) : heightM;
+  const decimals = state.heightUnit === 'ft' ? 0 : 1;
+  state.targetHeightValue = Math.round(displayValue * 10 ** decimals) / 10 ** decimals;
+  heightSlider.value = state.targetHeightValue;
+  heightInput.value = state.targetHeightValue;
+  state.activeFavouriteId = null;
+  updateStarUI();
 }
 
 // ----- favourites -----
@@ -427,11 +441,14 @@ makeResizable(document.getElementById('panel-resizer'), document.querySelector('
 // ----- init -----
 
 ready.then(() => {
+  addBuildingsAndTerrain(map);
+
   marker = addLandmarkMarker(map, state.landmark, (lonlat) => {
     setLandmark({ name: 'Custom location', lat: lonlat.lat, lon: lonlat.lon });
   });
 
   onMapClick(map, (lonlat) => {
+    if (lonlat.buildingHeightM != null) applyBuildingHeight(lonlat.buildingHeightM);
     setLandmark({ name: 'Custom location', lat: lonlat.lat, lon: lonlat.lon });
   });
 
