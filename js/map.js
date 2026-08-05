@@ -128,11 +128,15 @@ export function addBuildingsAndTerrain(map) {
       'source-layer': 'building',
       filter: ['==', 'extrude', 'true'],
       type: 'fill-extrusion',
-      minzoom: 14,
+      // 13 is the practical floor, not an arbitrary choice: Mapbox's own
+      // building data in this tileset only starts existing at zoom 13
+      // (large/prominent buildings; full coverage by 16), so anything lower
+      // would just be an empty layer with no data to render.
+      minzoom: 13,
       paint: {
         'fill-extrusion-color': '#5a6472',
-        'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.05, ['get', 'height']],
-        'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.05, ['get', 'min_height']],
+        'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 13, 0, 13.05, ['get', 'height']],
+        'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 13, 0, 13.05, ['get', 'min_height']],
         'fill-extrusion-opacity': 0.85,
       },
     },
