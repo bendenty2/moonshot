@@ -1,4 +1,4 @@
-import { makeObserver, moonHorizontal, moonIllumination, moonPhaseName, nextMoonRiseSet, nextFullMoon, nextNewMoon } from './astro.js';
+import { makeObserver, moonHorizontal, moonIllumination, moonPhaseName, nextMoonRiseSet, nextFullMoon, nextNewMoon } from './astro.js?v=1.2.4';
 
 const AU_KM = 149_597_870.7;
 
@@ -92,8 +92,6 @@ export function renderMoonPanel(container, info) {
       ${riseSetRows.map(factRow).join('\n      ')}
       ${phaseRows.map(factRow).join('\n      ')}
     </dl>
-
-    <hr class="panel-divider" />
 
     <dl class="panel-facts panel-facts--secondary">
       <div class="panel-fact">

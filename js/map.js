@@ -5,10 +5,13 @@
 const PATH_SOURCE_ID = 'alignment-path';
 const ARROWS_SOURCE_ID = 'alignment-arrows';
 const TIMESTAMPS_SOURCE_ID = 'alignment-timestamps';
+const VIRTUAL_POINT_SOURCE_ID = 'virtual-point';
 const HIT_LAYER_ID = 'alignment-path-hit';
 const LINE_LAYER_ID = 'alignment-path-line';
 const ARROWS_LAYER_ID = 'alignment-arrows-symbol';
 const TIMESTAMPS_LAYER_ID = 'alignment-timestamps-symbol';
+const VIRTUAL_POINT_LAYER_ID = 'virtual-point-pillar';
+const TERRAIN_SOURCE_ID = 'mapbox-dem';
 
 const LABEL_INTERVAL_MIN = 10;
 
@@ -21,6 +24,115 @@ const RAD = 180 / Math.PI;
 let currentPoints = [];
 let tooltipEl = null;
 
+// Toggles the map between a flat top-down view and a tilted 3D view — a
+// purpose-built replacement for the compass "reset bearing to north" button
+// removed earlier, now covering pitch too (not just bearing) since there's
+// an actual 3D view to reset out of.
+class ViewModeControl {
+  onAdd(map) {
+    this._map = map;
+    this._container = document.createElement('div');
+    this._container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group view-mode-control';
+
+    this._btn2d = document.createElement('button');
+    this._btn2d.type = 'button';
+    this._btn2d.className = 'view-mode-btn is-active';
+    this._btn2d.textContent = '2D';
+    this._btn2d.setAttribute('aria-label', 'Reset to flat 2D view');
+
+    this._btn3d = document.createElement('button');
+    this._btn3d.type = 'button';
+    this._btn3d.className = 'view-mode-btn';
+    this._btn3d.textContent = '3D';
+    this._btn3d.setAttribute('aria-label', 'Tilt to a 3D view');
+
+    this._btn2d.addEventListener('click', () => {
+      map.easeTo({ pitch: 0, bearing: 0 });
+    });
+    this._btn3d.addEventListener('click', () => {
+      map.easeTo({ pitch: 60, bearing: -20 });
+    });
+
+    // Single source of truth for the active button: driven off the map's
+    // actual pitch rather than only the two buttons above, so manually
+    // dragging into/out of a tilted view (right-click drag, two-finger
+    // touch) keeps the control in sync too, not just clicking the buttons.
+    map.on('pitch', () => this._setActive(map.getPitch() > 0 ? '3d' : '2d'));
+
+    this._container.append(this._btn2d, this._btn3d);
+    return this._container;
+  }
+
+  onRemove() {
+    this._container.remove();
+    this._map = undefined;
+  }
+
+  _setActive(mode) {
+    this._btn2d.classList.toggle('is-active', mode === '2d');
+    this._btn3d.classList.toggle('is-active', mode === '3d');
+  }
+}
+
+// Whether a building click should auto-fill the target-height slider with
+// that building's real height — the "Set height automatically" legend
+// toggle below. Off by default: the target height now just starts at
+// DEFAULT_TARGET_HEIGHT_FT and only otherwise changes via a favourite or a
+// manual edit, unless the owner opts back into the old auto-fill behavior.
+let autoHeightEnabled = false;
+
+// Top-left legend: toggles for the Standard style's basemap label config,
+// plus the app-level "set height automatically" preference. Pinch/scroll-
+// wheel zoom covers zooming (no +/- buttons anymore), so this and the
+// view-mode control are the map's only chrome besides the scale bar.
+class LegendControl {
+  onAdd(map) {
+    this._map = map;
+    this._container = document.createElement('div');
+    this._container.className = 'mapboxgl-ctrl map-legend';
+    this._container.innerHTML = `
+      <label class="legend-row">
+        <span class="legend-toggle">
+          <input type="checkbox" class="legend-checkbox" data-config="showPointOfInterestLabels" checked />
+          <span class="legend-slider"></span>
+        </span>
+        <span class="legend-label">Business &amp; landmark labels</span>
+      </label>
+      <label class="legend-row">
+        <span class="legend-toggle">
+          <input type="checkbox" class="legend-checkbox" data-config="showRoadLabels" checked />
+          <span class="legend-slider"></span>
+        </span>
+        <span class="legend-label">Street names</span>
+      </label>
+      <label class="legend-row">
+        <span class="legend-toggle">
+          <input type="checkbox" class="legend-checkbox" data-pref="autoHeight" />
+          <span class="legend-slider"></span>
+        </span>
+        <span class="legend-label">Set height automatically</span>
+      </label>
+    `;
+
+    this._container.querySelectorAll('.legend-checkbox[data-config]').forEach((checkbox) => {
+      checkbox.addEventListener('change', () => {
+        map.setConfigProperty('basemap', checkbox.dataset.config, checkbox.checked);
+      });
+    });
+
+    this._container.querySelector('.legend-checkbox[data-pref="autoHeight"]').addEventListener('change', (e) => {
+      autoHeightEnabled = e.target.checked;
+    });
+
+    return this._container;
+  }
+
+  onRemove() {
+    this._container.remove();
+    this._map = undefined;
+  }
+}
+
 export function createMap(containerId, { token, style, center }) {
   mapboxgl.accessToken = token;
 
@@ -30,14 +142,16 @@ export function createMap(containerId, { token, style, center }) {
     center: [center.lon, center.lat],
     zoom: 15,
   });
-  map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
+  map.addControl(new LegendControl(), 'top-left');
+  map.addControl(new ViewModeControl(), 'bottom-right');
+  map.addControl(new mapboxgl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-left');
 
   const ready = new Promise((resolve) => map.on('load', resolve));
   return { map, ready };
 }
 
 export function addLandmarkMarker(map, lonlat, onDragEnd) {
-  const marker = new mapboxgl.Marker({ color: '#ffcc66', draggable: true })
+  const marker = new mapboxgl.Marker({ color: '#2d4a9e', draggable: true })
     .setLngLat([lonlat.lon, lonlat.lat])
     .addTo(map);
 
@@ -49,8 +163,61 @@ export function addLandmarkMarker(map, lonlat, onDragEnd) {
   return marker;
 }
 
+// Ground terrain (a raster-DEM tileset, so this does add some tile fetching
+// as you pan/zoom — unlike buildings below, which cost nothing extra).
+// Standard renders 3D buildings natively, so there's no custom layer to add
+// here anymore (a hand-rolled fill-extrusion layer, like Moonshot used on
+// the classic dark-v11 style, would just double them up). 'night' is set
+// as the default lightPreset since the style's own default reads far
+// lighter/whiter than fits the app's dark theme — 'theme' (default/faded/
+// monochrome) is another available lever if 'night' alone isn't enough.
+// Call once, after the map's 'load' event.
+export function addBuildingsAndTerrain(map) {
+  map.addSource(TERRAIN_SOURCE_ID, {
+    type: 'raster-dem',
+    url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+    tileSize: 512,
+    maxzoom: 14,
+  });
+  map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1.0 });
+  map.setConfigProperty('basemap', 'lightPreset', 'night');
+}
+
+// Fires on every map click with the clicked lng/lat, plus that spot's real
+// building height in meters if a building was actually clicked AND the
+// "Set height automatically" legend toggle is on — null otherwise (either
+// no building was under the click, or the toggle is off). Standard's native
+// buildings aren't queryable via the classic queryRenderedFeatures (no
+// stable layer id to target), so this uses the newer Interactions/Featureset
+// API instead (requires Mapbox GL JS 3.28+; degrades to always-null height
+// on older versions rather than throwing).
+//
+// The building-targeted interaction and the plain map click are two
+// separate Mapbox event systems firing off the same physical click, and
+// their relative order isn't something we can rely on — the setTimeout
+// defers reading the stashed height to the next tick, after both have had
+// a chance to run, rather than assuming one fires before the other.
 export function onMapClick(map, handler) {
-  map.on('click', (e) => handler({ lat: e.lngLat.lat, lon: e.lngLat.lng }));
+  let pendingBuildingHeight = null;
+
+  if (typeof map.addInteraction === 'function') {
+    map.addInteraction('moonshot-building-click', {
+      type: 'click',
+      target: { featuresetId: 'buildings', importId: 'basemap' },
+      handler: ({ feature }) => {
+        pendingBuildingHeight = feature?.properties?.height ?? null;
+      },
+    });
+  }
+
+  map.on('click', (e) => {
+    const { lat, lng } = e.lngLat;
+    setTimeout(() => {
+      const buildingHeightM = pendingBuildingHeight;
+      pendingBuildingHeight = null;
+      handler({ lat, lon: lng, buildingHeightM: autoHeightEnabled ? buildingHeightM : null });
+    }, 0);
+  });
 }
 
 function formatTooltipTime(date) {
@@ -253,7 +420,7 @@ export function renderAlignmentPath(map, points) {
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
       'line-width': 2,
-      'line-color': '#ffcc66',
+      'line-color': '#2d4a9e',
     },
   });
 
@@ -305,6 +472,62 @@ export function renderAlignmentPath(map, points) {
 
 export function clearAlignmentPath(map) {
   renderAlignmentPath(map, []);
+}
+
+const METERS_PER_DEG_LAT = 111320;
+
+// A small square footprint (a few meters across) centered on the landmark —
+// not meant to be seen from directly above, just wide enough for the
+// fill-extrusion pillar built on it to read clearly once the map is tilted.
+function pillarFootprint(landmark, radiusM = 1.5) {
+  const dLat = radiusM / METERS_PER_DEG_LAT;
+  const dLon = radiusM / (METERS_PER_DEG_LAT * Math.cos(landmark.lat * DEG));
+  const { lat, lon } = landmark;
+  return [
+    [lon - dLon, lat - dLat],
+    [lon + dLon, lat - dLat],
+    [lon + dLon, lat + dLat],
+    [lon - dLon, lat + dLat],
+    [lon - dLon, lat - dLat],
+  ];
+}
+
+// Mapbox's Marker class has no way to anchor at a real-world altitude
+// (that requires terrain + the still-experimental line-z-offset family of
+// properties). fill-extrusion is mature and stable and needs neither: a
+// thin vertical pillar from the ground up to the target height reads as
+// "the virtual point is right here, this high up" once the map is tilted
+// into 3D — at pitch 0 it's invisible-by-design (just its flat footprint).
+export function renderVirtualPoint(map, landmark, heightM) {
+  const data = {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [pillarFootprint(landmark)] },
+        properties: { height: heightM },
+      },
+    ],
+  };
+
+  const source = map.getSource(VIRTUAL_POINT_SOURCE_ID);
+  if (source) {
+    source.setData(data);
+    return;
+  }
+
+  map.addSource(VIRTUAL_POINT_SOURCE_ID, { type: 'geojson', data });
+  map.addLayer({
+    id: VIRTUAL_POINT_LAYER_ID,
+    type: 'fill-extrusion',
+    source: VIRTUAL_POINT_SOURCE_ID,
+    paint: {
+      'fill-extrusion-color': '#2d4a9e',
+      'fill-extrusion-height': ['get', 'height'],
+      'fill-extrusion-base': 0,
+      'fill-extrusion-opacity': 0.9,
+    },
+  });
 }
 
 export async function geocode(query, token, proximity) {

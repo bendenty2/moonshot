@@ -2,10 +2,16 @@
 //
 // Dedicated public token for Moonshot, URL-restricted in the Mapbox dashboard
 // (console.mapbox.com/account/access-tokens) to moonshot.bendentremont.com,
-// dev.moonshot.bendentremont.com, and localhost.
+// dev.moonshot.bendentremont.com, moonshot-et1.pages.dev (covers every
+// Cloudflare Pages preview branch, via Mapbox's automatic subdomain
+// matching), and localhost.
 export const MAPBOX_TOKEN = 'pk.eyJ1IjoiYmVuZGVudHJlbW9udCIsImEiOiJjbXNjMjlraDkxaXJiMzVwcGozMnFuNXJ2In0.b3E8CuU6PSuqgm0engM3Vw';
 
-export const MAPBOX_STYLE = 'mapbox://styles/mapbox/dark-v11';
+// Switched from the classic dark-v11 style to Standard (native 3D
+// buildings, dynamic lighting via lightPreset, actively maintained by
+// Mapbox — dark-v11 and other "classic" styles are not). See map.js for
+// the lightPreset/theme/label-toggle config wired on top of this.
+export const MAPBOX_STYLE = 'mapbox://styles/mapbox/standard';
 
 // Default landmark shown on first load: CN Tower, Toronto.
 export const DEFAULT_LANDMARK = {
@@ -14,9 +20,12 @@ export const DEFAULT_LANDMARK = {
   lon: -79.3871,
 };
 
-// Virtual target point elevation, in feet above the landmark's base.
-// ~1900 ft puts a full moon reading just above the CN Tower's spire.
-export const DEFAULT_TARGET_HEIGHT_FT = 1900;
+// Virtual target point elevation, in feet above the landmark's base. A plain
+// starting default (not tied to any particular landmark) — the owner edits
+// it manually or picks a favourite; the old auto-fill-from-clicked-building
+// behavior is now opt-in (see the "Set height automatically" legend toggle
+// in map.js).
+export const DEFAULT_TARGET_HEIGHT_FT = 500;
 
 // Observer eye-level elevation above sea level. v1 assumes flat terrain
 // at sea level (see brief section 6) rather than looking up local ground elevation.
@@ -25,6 +34,17 @@ export const OBSERVER_ELEVATION_M = 0;
 // How far from the landmark we'll search for a valid alignment point, in km.
 // Configurable rather than hardcoded — exposed as a control-bar input.
 export const DEFAULT_MAX_DISTANCE_KM = 8;
+
+// Slider bounds for the target-height control. Independently chosen per
+// unit (not a mathematical conversion of one another — 2000 ft and 600 m are
+// each a separately-picked "sane useful range" for that unit).
+export const TARGET_HEIGHT_RANGE = {
+  ft: { min: 0, max: 2000, step: 10 },
+  m: { min: 0, max: 600, step: 5 },
+};
+
+// Slider bounds for the max-distance control (always km, no unit toggle).
+export const MAX_DISTANCE_RANGE = { min: 0, max: 10, step: 0.1 };
 
 // Sampling step for walking the alignment path across the search window.
 export const PATH_STEP_MINUTES = 2;

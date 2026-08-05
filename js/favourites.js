@@ -121,7 +121,7 @@ function startEdit(li, fav, onSave) {
   });
 }
 
-export function renderFavourites(container, list, { onSelect, onEdit, onRemove }) {
+export function renderFavourites(container, list, { onSelect, onEdit, onRemove, activeId = null }) {
   if (list.length === 0) {
     container.innerHTML = '<li class="favourites-empty">No favourites yet.</li>';
     return;
@@ -130,7 +130,7 @@ export function renderFavourites(container, list, { onSelect, onEdit, onRemove }
   container.innerHTML = list
     .map(
       (fav) => `
-    <li class="favourite-item" data-id="${fav.id}">
+    <li class="favourite-item${fav.id === activeId ? ' is-active' : ''}" data-id="${fav.id}">
       <button type="button" class="favourite-select" data-action="select">
         <span class="favourite-name">${escapeHtml(fav.name)}</span>
         <span class="favourite-meta">${fav.heightValue}${fav.heightUnit}</span>

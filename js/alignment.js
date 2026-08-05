@@ -14,7 +14,7 @@
 // acceptable v1 scope decision (curvature only matters at the multi-km+
 // distances this tool isn't meant to reach anyway).
 
-import { makeObserver, moonHorizontal } from './astro.js';
+import { makeObserver, moonHorizontal } from './astro.js?v=1.2.4';
 
 const EARTH_RADIUS_M = 6371000;
 const DEG = Math.PI / 180;
