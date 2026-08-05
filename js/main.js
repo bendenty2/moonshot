@@ -12,13 +12,13 @@ import {
   heightToMeters,
   metersToFeet,
   kmToMeters,
-} from './config.js?v=1.2.2';
-import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.2.2';
-import { computeAlignmentPath } from './alignment.js?v=1.2.2';
-import { createMap, addLandmarkMarker, onMapClick, addBuildingsAndTerrain, renderAlignmentPath, renderVirtualPoint, geocode } from './map.js?v=1.2.2';
-import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.2.2';
-import { createDatePicker } from './datepicker.js?v=1.2.2';
-import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.2.2';
+} from './config.js?v=1.2.3';
+import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.2.3';
+import { computeAlignmentPath } from './alignment.js?v=1.2.3';
+import { createMap, addLandmarkMarker, onMapClick, addBuildingsAndTerrain, renderAlignmentPath, renderVirtualPoint, geocode } from './map.js?v=1.2.3';
+import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.2.3';
+import { createDatePicker } from './datepicker.js?v=1.2.3';
+import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.2.3';
 
 const state = {
   landmark: { ...DEFAULT_LANDMARK },

@@ -11,7 +11,6 @@ const LINE_LAYER_ID = 'alignment-path-line';
 const ARROWS_LAYER_ID = 'alignment-arrows-symbol';
 const TIMESTAMPS_LAYER_ID = 'alignment-timestamps-symbol';
 const VIRTUAL_POINT_LAYER_ID = 'virtual-point-pillar';
-const BUILDINGS_LAYER_ID = '3d-buildings';
 const TERRAIN_SOURCE_ID = 'mapbox-dem';
 
 const LABEL_INTERVAL_MIN = 10;
@@ -71,6 +70,46 @@ class ViewModeControl {
   }
 }
 
+// Top-left legend: toggles for the Standard style's basemap label config.
+// Pinch/scroll-wheel zoom covers zooming (no +/- buttons anymore), so this
+// and the view-mode control are the map's only chrome besides the scale bar.
+class LegendControl {
+  onAdd(map) {
+    this._map = map;
+    this._container = document.createElement('div');
+    this._container.className = 'mapboxgl-ctrl map-legend';
+    this._container.innerHTML = `
+      <label class="legend-row">
+        <span class="legend-toggle">
+          <input type="checkbox" class="legend-checkbox" data-config="showPointOfInterestLabels" checked />
+          <span class="legend-slider"></span>
+        </span>
+        <span class="legend-label">Business &amp; landmark labels</span>
+      </label>
+      <label class="legend-row">
+        <span class="legend-toggle">
+          <input type="checkbox" class="legend-checkbox" data-config="showRoadLabels" checked />
+          <span class="legend-slider"></span>
+        </span>
+        <span class="legend-label">Street names</span>
+      </label>
+    `;
+
+    this._container.querySelectorAll('.legend-checkbox').forEach((checkbox) => {
+      checkbox.addEventListener('change', () => {
+        map.setConfigProperty('basemap', checkbox.dataset.config, checkbox.checked);
+      });
+    });
+
+    return this._container;
+  }
+
+  onRemove() {
+    this._container.remove();
+    this._map = undefined;
+  }
+}
+
 export function createMap(containerId, { token, style, center }) {
   mapboxgl.accessToken = token;
 
@@ -80,7 +119,7 @@ export function createMap(containerId, { token, style, center }) {
     center: [center.lon, center.lat],
     zoom: 15,
   });
-  map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
+  map.addControl(new LegendControl(), 'top-left');
   map.addControl(new ViewModeControl(), 'bottom-right');
   map.addControl(new mapboxgl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-left');
 
@@ -101,12 +140,14 @@ export function addLandmarkMarker(map, lonlat, onDragEnd) {
   return marker;
 }
 
-// 3D building extrusions (real building footprints + heights, already present
-// in the same vector tiles the base map uses — no extra requests) plus
-// ground terrain (a separate raster-DEM tileset, so this part does add some
-// tile fetching as you pan/zoom). Both are mature, stable Mapbox GL JS
-// features — unlike true point/marker altitude, which currently has no
-// non-experimental API (see the virtual-point pillar's own comment).
+// Ground terrain (a raster-DEM tileset, so this does add some tile fetching
+// as you pan/zoom — unlike buildings below, which cost nothing extra).
+// Standard renders 3D buildings natively, so there's no custom layer to add
+// here anymore (a hand-rolled fill-extrusion layer, like Moonshot used on
+// the classic dark-v11 style, would just double them up). 'night' is set
+// as the default lightPreset since the style's own default reads far
+// lighter/whiter than fits the app's dark theme — 'theme' (default/faded/
+// monochrome) is another available lever if 'night' alone isn't enough.
 // Call once, after the map's 'load' event.
 export function addBuildingsAndTerrain(map) {
   map.addSource(TERRAIN_SOURCE_ID, {
@@ -116,43 +157,41 @@ export function addBuildingsAndTerrain(map) {
     maxzoom: 14,
   });
   map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1.0 });
-
-  // Insert buildings just below the first text-label layer, so labels stay
-  // legible on top instead of getting buried under building geometry.
-  const labelLayer = map.getStyle().layers.find((l) => l.type === 'symbol' && l.layout && l.layout['text-field']);
-
-  map.addLayer(
-    {
-      id: BUILDINGS_LAYER_ID,
-      source: 'composite',
-      'source-layer': 'building',
-      filter: ['==', 'extrude', 'true'],
-      type: 'fill-extrusion',
-      // 13 is the practical floor, not an arbitrary choice: Mapbox's own
-      // building data in this tileset only starts existing at zoom 13
-      // (large/prominent buildings; full coverage by 16), so anything lower
-      // would just be an empty layer with no data to render.
-      minzoom: 13,
-      paint: {
-        'fill-extrusion-color': '#5a6472',
-        'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 13, 0, 13.05, ['get', 'height']],
-        'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 13, 0, 13.05, ['get', 'min_height']],
-        'fill-extrusion-opacity': 0.85,
-      },
-    },
-    labelLayer?.id
-  );
+  map.setConfigProperty('basemap', 'lightPreset', 'night');
 }
 
 // Fires on every map click with the clicked lng/lat, plus that spot's real
-// building height in meters (from the 3D buildings layer) if a building was
-// actually clicked — null otherwise (open ground, or zoomed out past the
-// buildings layer's minzoom so nothing is rendered there to hit).
+// building height in meters if a building was actually clicked — null
+// otherwise. Standard's native buildings aren't queryable via the classic
+// queryRenderedFeatures (no stable layer id to target), so this uses the
+// newer Interactions/Featureset API instead (requires Mapbox GL JS 3.28+;
+// degrades to always-null height on older versions rather than throwing).
+//
+// The building-targeted interaction and the plain map click are two
+// separate Mapbox event systems firing off the same physical click, and
+// their relative order isn't something we can rely on — the setTimeout
+// defers reading the stashed height to the next tick, after both have had
+// a chance to run, rather than assuming one fires before the other.
 export function onMapClick(map, handler) {
+  let pendingBuildingHeight = null;
+
+  if (typeof map.addInteraction === 'function') {
+    map.addInteraction('moonshot-building-click', {
+      type: 'click',
+      target: { featuresetId: 'buildings', importId: 'basemap' },
+      handler: ({ feature }) => {
+        pendingBuildingHeight = feature?.properties?.height ?? null;
+      },
+    });
+  }
+
   map.on('click', (e) => {
-    const hit = map.queryRenderedFeatures(e.point, { layers: [BUILDINGS_LAYER_ID] })[0];
-    const buildingHeightM = hit ? hit.properties.height : null;
-    handler({ lat: e.lngLat.lat, lon: e.lngLat.lng, buildingHeightM });
+    const { lat, lng } = e.lngLat;
+    setTimeout(() => {
+      const buildingHeightM = pendingBuildingHeight;
+      pendingBuildingHeight = null;
+      handler({ lat, lon: lng, buildingHeightM });
+    }, 0);
   });
 }
 

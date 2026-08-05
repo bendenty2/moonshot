@@ -2,10 +2,16 @@
 //
 // Dedicated public token for Moonshot, URL-restricted in the Mapbox dashboard
 // (console.mapbox.com/account/access-tokens) to moonshot.bendentremont.com,
-// dev.moonshot.bendentremont.com, and localhost.
+// dev.moonshot.bendentremont.com, moonshot-et1.pages.dev (covers every
+// Cloudflare Pages preview branch, via Mapbox's automatic subdomain
+// matching), and localhost.
 export const MAPBOX_TOKEN = 'pk.eyJ1IjoiYmVuZGVudHJlbW9udCIsImEiOiJjbXNjMjlraDkxaXJiMzVwcGozMnFuNXJ2In0.b3E8CuU6PSuqgm0engM3Vw';
 
-export const MAPBOX_STYLE = 'mapbox://styles/mapbox/dark-v11';
+// Switched from the classic dark-v11 style to Standard (native 3D
+// buildings, dynamic lighting via lightPreset, actively maintained by
+// Mapbox — dark-v11 and other "classic" styles are not). See map.js for
+// the lightPreset/theme/label-toggle config wired on top of this.
+export const MAPBOX_STYLE = 'mapbox://styles/mapbox/standard';
 
 // Default landmark shown on first load: CN Tower, Toronto.
 export const DEFAULT_LANDMARK = {

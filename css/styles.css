@@ -741,6 +741,75 @@ body {
   color: #fff;
 }
 
+/* ===== Map legend (label toggles, top-left) ===== */
+
+.map-legend {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.legend-toggle {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 18px;
+}
+
+.legend-checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.legend-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--border);
+  border-radius: 999px;
+  transition: background 0.15s;
+}
+
+.legend-slider::before {
+  content: '';
+  position: absolute;
+  height: 14px;
+  width: 14px;
+  left: 2px;
+  top: 2px;
+  background: var(--text);
+  border-radius: 50%;
+  transition: transform 0.15s;
+}
+
+.legend-checkbox:checked + .legend-slider {
+  background: var(--accent);
+}
+
+.legend-checkbox:checked + .legend-slider::before {
+  transform: translateX(12px);
+  background: #ffffff;
+}
+
+.legend-label {
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
 /* ===== Footer ===== */
 
 .site-footer {
