@@ -110,7 +110,7 @@ class LegendControl {
     this._container.innerHTML = `
       <label class="legend-row">
         <span class="legend-toggle">
-          <input type="checkbox" class="legend-checkbox" data-config-group="labels" checked />
+          <input type="checkbox" class="legend-checkbox" data-config-group="labels" />
           <span class="legend-slider"></span>
         </span>
         <span class="legend-label">Labels</span>
@@ -188,6 +188,10 @@ export function addBuildingsAndTerrain(map) {
     maxzoom: 14,
   });
   map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1.0 });
+  // Labels off by default (matches the legend checkbox's unchecked initial
+  // state above) — the owner opts back in via the "Labels" toggle rather
+  // than starting from Standard's own labels-on default.
+  LABEL_CONFIG_PROPERTIES.forEach((prop) => map.setConfigProperty('basemap', prop, false));
 }
 
 // Follows the site-wide light/dark theme toggle: Standard's own lightPreset

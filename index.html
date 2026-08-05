@@ -21,7 +21,7 @@
   </script>
 
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.28.0/mapbox-gl.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=1.2.6" />
+  <link rel="stylesheet" href="css/styles.css?v=1.2.7" />
   <!-- Self-hosted DM Sans (see @font-face in styles.css). Preload the primary
        latin file so text paints in the real face without a Google round-trip. -->
   <link rel="preload" href="fonts/dmsans-latin.woff2" as="font" type="font/woff2" crossorigin />
@@ -35,8 +35,8 @@
       <button type="button" class="topbar-tab" data-view="pov-arc">POV Arc</button>
     </nav>
     <div class="view-mode-control theme-toggle" role="group" aria-label="Color theme">
-      <button id="theme-dark-btn" class="view-mode-btn is-active" type="button" aria-label="Dark mode" title="Dark mode">&#9789;</button>
-      <button id="theme-light-btn" class="view-mode-btn" type="button" aria-label="Light mode" title="Light mode">&#9728;</button>
+      <button id="theme-dark-btn" class="view-mode-btn is-active" type="button" aria-label="Dark mode" title="Dark mode">Dark</button>
+      <button id="theme-light-btn" class="view-mode-btn" type="button" aria-label="Light mode" title="Light mode">Light</button>
     </div>
   </header>
 
@@ -62,7 +62,7 @@
       </div>
 
       <div class="controlbar-group controlbar-time">
-        <button id="time-now" class="time-btn is-active" type="button">Now</button>
+        <button id="time-now" class="time-btn is-active" type="button">Next Moonrise</button>
         <button id="time-fullmoon" class="time-btn" type="button">Next Full Moon</button>
         <div class="date-picker">
           <button id="time-custom-btn" class="time-btn" type="button">Custom Date</button>
@@ -105,12 +105,12 @@
   </div>
 
   <footer class="site-footer">
-    <span class="footer-version">v1.2.6</span>
+    <span class="footer-version">v1.2.7</span>
     <small>&copy; <span id="footer-year">2026</span> Benjamin d'Entremont. All rights reserved.</small>
   </footer>
 
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.28.0/mapbox-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
-  <script type="module" src="js/main.js?v=1.2.6"></script>
+  <script type="module" src="js/main.js?v=1.2.7"></script>
 </body>
 </html>

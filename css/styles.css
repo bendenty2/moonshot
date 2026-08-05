@@ -25,6 +25,12 @@
    (js/main.js) sets data-theme="light" on <html> for the alternate palette
    below. Non-color tokens (spacing, font) don't need a light variant. */
 :root {
+  /* Tells the browser our own theming (not its OS-level dark-mode guess) is
+     authoritative for native form-control rendering. Without this, Chrome
+     on a dark-mode OS was synthesizing its own dark-mode hover highlight
+     (a flat grey fill) over the 2D/3D and theme pill buttons, on top of —
+     not replaced by — our own explicit hover styles below. */
+  color-scheme: dark;
   --bg: #000000;
   --panel-bg: #000000;
   --card-bg: #141414;
@@ -47,6 +53,7 @@
 }
 
 :root[data-theme="light"] {
+  color-scheme: light;
   --bg: #ffffff;
   --panel-bg: #ffffff;
   --card-bg: #f1f2f4;
@@ -126,9 +133,15 @@ body {
 
 /* Reuses .view-mode-control/.view-mode-btn's pill look (see the map 2D/3D
    control below) so the two toggles read as the same UI pattern — only
-   this bit of positioning is specific to sitting in the top bar. */
+   positioning and button width (to fit "Dark"/"Light" text instead of the
+   2D/3D pill's fixed 2-character width) are specific to this instance. */
 .theme-toggle {
   margin-left: 16px;
+}
+
+.theme-toggle .view-mode-btn {
+  width: auto;
+  padding: 0 12px;
 }
 
 /* ===== Views (tab content) ===== */

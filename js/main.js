@@ -15,14 +15,14 @@ import {
   heightToMeters,
   metersToFeet,
   kmToMeters,
-} from './config.js?v=1.2.6';
-import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.2.6';
-import { computeAlignmentPath } from './alignment.js?v=1.2.6';
-import { createMap, addLandmarkMarker, onMapClick, addBuildingsAndTerrain, renderAlignmentPath, renderVirtualPoint, geocode, setMapTheme } from './map.js?v=1.2.6';
-import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.2.6';
-import { createDatePicker } from './datepicker.js?v=1.2.6';
-import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.2.6';
-import { loadTheme, saveTheme } from './theme.js?v=1.2.6';
+} from './config.js?v=1.2.7';
+import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.2.7';
+import { computeAlignmentPath } from './alignment.js?v=1.2.7';
+import { createMap, addLandmarkMarker, onMapClick, addBuildingsAndTerrain, renderAlignmentPath, renderVirtualPoint, geocode, setMapTheme } from './map.js?v=1.2.7';
+import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.2.7';
+import { createDatePicker } from './datepicker.js?v=1.2.7';
+import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.2.7';
+import { loadTheme, saveTheme } from './theme.js?v=1.2.7';
 
 const state = {
   landmark: { ...DEFAULT_LANDMARK },
