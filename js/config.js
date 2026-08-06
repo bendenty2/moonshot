@@ -43,7 +43,7 @@ export const DEFAULT_MAP_CENTER_OFFSET_LAT = 0.00028; // ~31m north
 // ~1900 ft puts a full moon reading just above the CN Tower's spire — the
 // standard opening location + height the app always starts at. From here,
 // height only changes via picking a favourite or a manual edit, unless the
-// "Set height on click" legend toggle (see map.js) is switched on.
+// "Auto-set height" legend toggle (see map.js) is switched on.
 export const DEFAULT_TARGET_HEIGHT_FT = 1900;
 
 // Observer eye-level elevation above sea level. v1 assumes flat terrain

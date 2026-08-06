@@ -36,7 +36,7 @@ let currentPoints = [];
 let tooltipEl = null;
 
 // Whether a building click should auto-fill the target-height slider with
-// that building's real height — the "Set height on click" legend toggle
+// that building's real height — the "Auto-set height" legend toggle
 // below. Off by default: the target height now just starts at
 // DEFAULT_TARGET_HEIGHT_FT and only otherwise changes via a favourite or a
 // manual edit, unless the owner opts back into the old auto-fill behavior.
@@ -64,21 +64,21 @@ class MapControlsPanel {
           <input type="checkbox" class="legend-checkbox" data-config-group="labels" />
           <span class="legend-slider"></span>
         </span>
-        <span class="legend-label">Labels</span>
+        <span class="legend-label">Show labels</span>
       </label>
       <label class="legend-row">
         <span class="legend-toggle">
           <input type="checkbox" class="legend-checkbox" data-pref="autoHeight" />
           <span class="legend-slider"></span>
         </span>
-        <span class="legend-label">Set height on click</span>
+        <span class="legend-label">Auto-set height</span>
       </label>
       <label class="legend-row">
         <span class="legend-toggle">
           <input type="checkbox" class="legend-checkbox" data-pref="showCompass" checked />
           <span class="legend-slider"></span>
         </span>
-        <span class="legend-label">Compass</span>
+        <span class="legend-label">Show compass</span>
       </label>
     `;
 
@@ -303,7 +303,7 @@ export function setMapTheme(map, theme) {
 
 // Fires on every map click with the clicked lng/lat, plus that spot's real
 // building height in meters if a building was actually clicked AND the
-// "Set height on click" legend toggle is on — null otherwise (either
+// "Auto-set height" legend toggle is on — null otherwise (either
 // no building was under the click, or the toggle is off). Standard's native
 // buildings aren't queryable via the classic queryRenderedFeatures (no
 // stable layer id to target), so this uses the newer Interactions/Featureset
