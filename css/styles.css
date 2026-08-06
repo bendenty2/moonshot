@@ -895,14 +895,21 @@ body {
 }
 
 /* ===== Map compass (top-right) =====
-   Four fixed-position N/E/S/W buttons around a circular dial, plus a
-   degree-marked bezel. The dial (and its tick marks) counter-rotates
-   against the map's live bearing so it always reads as a true compass
-   (see CompassControl in map.js), while each letter is individually
-   counter-counter-rotated back upright so the buttons stay legible and
-   easy to hit regardless of the current rotation. */
+   Four fixed-position N/E/S/W buttons around a circular dial, plus a live
+   heading readout below it. The dial counter-rotates against the map's
+   live bearing so it always reads as a true compass (see CompassControl
+   in map.js), while each letter is individually counter-counter-rotated
+   back upright so the buttons stay legible and easy to hit regardless of
+   the current rotation. */
 
 .compass-control {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.compass-face {
   position: relative;
   width: 84px;
   height: 84px;
@@ -912,20 +919,6 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
-/* Center pivot dot, like a real compass needle's mounting point. */
-.compass-control::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 5px;
-  height: 5px;
-  margin: -2.5px 0 0 -2.5px;
-  border-radius: 50%;
-  background: var(--accent);
-  pointer-events: none;
-}
-
 .compass-dial {
   position: absolute;
   inset: 0;
@@ -933,31 +926,15 @@ body {
   transition: transform 0.2s ease;
 }
 
-/* Degree tick marks around the bezel: a minor tick every 10°, and a
-   longer/brighter major tick every 30° — two stacked repeating-conic-
-   gradient rings, each masked down to a thin annulus near the edge,
-   rather than 36 individual DOM elements. Major ticks land on the same
-   angles as minor ticks (30 is a multiple of 10), and since the major
-   ring is both wider and painted second, it simply reads as a longer,
-   brighter mark at those angles. */
-.compass-dial::before {
-  content: '';
-  position: absolute;
-  inset: 3px;
-  border-radius: 50%;
-  background: repeating-conic-gradient(var(--border) 0deg 1deg, transparent 1deg 10deg);
-  -webkit-mask: radial-gradient(circle, transparent calc(50% - 7px), #000 calc(50% - 7px));
-  mask: radial-gradient(circle, transparent calc(50% - 7px), #000 calc(50% - 7px));
-}
-
-.compass-dial::after {
-  content: '';
-  position: absolute;
-  inset: 3px;
-  border-radius: 50%;
-  background: repeating-conic-gradient(var(--text-dim) 0deg 1.5deg, transparent 1.5deg 30deg);
-  -webkit-mask: radial-gradient(circle, transparent calc(50% - 10px), #000 calc(50% - 10px));
-  mask: radial-gradient(circle, transparent calc(50% - 10px), #000 calc(50% - 10px));
+.compass-heading {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
 }
 
 .compass-btn {

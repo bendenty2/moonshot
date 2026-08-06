@@ -23,20 +23,21 @@ export const DEFAULT_LANDMARK = {
 // The map's initial camera — a tilted 3D framing of the default landmark
 // (rather than a flat top-down start). Bearing 0 faces exactly north.
 // Pitch raised from the view-mode "3D" button's 60 to a shallower
-// (more horizon-level, less overhead) 70 per owner feedback. Zoom nudged
-// in slightly from 15.2 -> 15.5.
-export const DEFAULT_MAP_ZOOM = 15.5;
+// (more horizon-level, less overhead) 70 per owner feedback. Zoom pulled
+// back slightly from 15.5 -> 15.35 per a follow-up "just a bit more" nudge.
+export const DEFAULT_MAP_ZOOM = 15.35;
 export const DEFAULT_MAP_PITCH = 70;
 export const DEFAULT_MAP_BEARING = 0;
 
 // A small camera-only nudge north of the landmark's real coordinate, so
 // the tilted opening view sits the tower a little closer to the viewer
 // instead of exactly on the pitch's natural center line — "shifted
-// slightly towards the CN Tower" per owner feedback. Deliberately only
-// applied to the initial camera's center (see main.js), not to
-// state.landmark itself: the marker, path algorithm, and favourites all
+// slightly towards the CN Tower" per owner feedback, increased once
+// (0.00018 -> 0.00028, ~20m -> ~31m) on a follow-up "slightly more" nudge.
+// Deliberately only applied to the initial camera's center (see main.js),
+// not to state.landmark itself: the marker, path algorithm, and favourites all
 // still need the landmark's true, unshifted coordinate.
-export const DEFAULT_MAP_CENTER_OFFSET_LAT = 0.00018; // ~20m north
+export const DEFAULT_MAP_CENTER_OFFSET_LAT = 0.00028; // ~31m north
 
 // Virtual target point elevation, in feet above the landmark's base.
 // ~1900 ft puts a full moon reading just above the CN Tower's spire — the

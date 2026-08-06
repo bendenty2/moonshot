@@ -176,6 +176,9 @@ class CompassControl {
     this._container = document.createElement('div');
     this._container.className = 'mapboxgl-ctrl compass-control';
 
+    const face = document.createElement('div');
+    face.className = 'compass-face';
+
     this._dial = document.createElement('div');
     this._dial.className = 'compass-dial';
 
@@ -196,7 +199,15 @@ class CompassControl {
       return span;
     });
 
-    this._container.append(this._dial);
+    face.append(this._dial);
+
+    // Live heading readout below the dial — shows/hides together with the
+    // rest of the compass since it's just another child of this._container,
+    // the same element setVisible() toggles.
+    this._headingEl = document.createElement('div');
+    this._headingEl.className = 'compass-heading';
+
+    this._container.append(face, this._headingEl);
 
     map.on('rotate', () => this._sync());
     this._sync();
@@ -219,6 +230,10 @@ class CompassControl {
     this._labels.forEach((span) => {
       span.style.transform = `rotate(${bearing}deg)`;
     });
+    // Mapbox's bearing isn't clamped to 0-359 during interaction (it can
+    // go negative or past 360 while dragging) — normalize for display.
+    const heading = Math.round(((bearing % 360) + 360) % 360);
+    this._headingEl.textContent = `${heading}°`;
   }
 }
 
