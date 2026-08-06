@@ -861,32 +861,32 @@ body {
   transition: opacity 0.15s, color 0.15s;
 }
 
-/* Hover just fades the button slightly (whatever its current look already
-   is) instead of painting a new background over it. The real cause of an
-   earlier attempt at this still showing a solid grey block on hover:
-   Mapbox's own base CSS ships ".mapboxgl-ctrl button:not(:disabled):hover
-   { background-color: #eee }", and that selector's specificity (a class +
-   the "button" type + two pseudo-classes) actually beats a bare
-   ".view-mode-btn:hover:not(.is-active)" rule — the extra ".view-mode-
-   control" ancestor below is what's needed to out-specify it, not just
-   dropping the background-color declaration. */
-.view-mode-control .view-mode-btn:hover:not(.is-active) {
-  background-color: transparent;
-  color: var(--text);
-  opacity: 0.65;
-}
-
 .view-mode-btn.is-active {
   color: #fff;
 }
 
-/* Same fix as the inactive-hover rule above, for the active segment: without
-   an explicit background-color here, Mapbox's ".mapboxgl-ctrl button:not
-   (:disabled):hover { background-color: #eee }" was the only rule setting
-   that property on hover (the active look now comes entirely from the
-   separate .view-mode-highlight layer, not a background-color on the
-   button itself) — so it slipped through unopposed and whited out
-   whichever segment was already active on hover. */
+/* Mapbox's own base CSS ships ".mapboxgl-ctrl button:not(:disabled):hover
+   { background-color: #eee }", and that selector's specificity (a class +
+   the "button" type + two pseudo-classes) beats a bare ":hover" rule on
+   our own buttons — the extra ancestor class on each selector below is
+   what's needed to out-specify it, not just dropping the background-color
+   declaration (a hover style that doesn't restate background-color still
+   loses to Mapbox's, since nothing else is left to override it). One
+   shared rule covers every inactive-state custom map-control button
+   (2D/3D pill, theme pill, compass) since they all get the identical
+   "fade to var(--text), no background" look; the pill's already-accent-
+   colored active segment gets its own opacity-only fade below, since its
+   color is already right. */
+.view-mode-control .view-mode-btn:hover:not(.is-active),
+.compass-control .compass-dial .compass-btn:hover {
+  background-color: transparent;
+  color: var(--text);
+}
+
+.view-mode-control .view-mode-btn:hover:not(.is-active) {
+  opacity: 0.65;
+}
+
 .view-mode-control .view-mode-btn.is-active:hover {
   background-color: transparent;
   opacity: 0.85;
@@ -970,14 +970,8 @@ body {
   transition: transform 0.2s ease;
 }
 
-/* Same Mapbox base-CSS hover conflict as the view-mode pill (see its own
-   comment above) — ".compass-dial" as an extra ancestor is what's needed
-   to out-specify ".mapboxgl-ctrl button:not(:disabled):hover". */
-.compass-control .compass-dial .compass-btn:hover {
-  background-color: transparent;
-  color: var(--text);
-}
-
+/* The background-color/color hover reset for .compass-btn lives with
+   .view-mode-btn's above (same Mapbox base-CSS conflict, same fix). */
 .compass-n:hover .compass-btn-label {
   color: var(--accent);
 }

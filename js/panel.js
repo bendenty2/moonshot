@@ -1,4 +1,4 @@
-import { makeObserver, moonHorizontal, moonIllumination, moonPhaseName, nextMoonRiseSet, nextFullMoon, nextNewMoon } from './astro.js?v=1.2.15';
+import { makeObserver, moonHorizontal, moonIllumination, moonPhaseName, nextMoonRiseSet, nextFullMoon, nextNewMoon } from './astro.js?v=1.3.1';
 
 const AU_KM = 149_597_870.7;
 

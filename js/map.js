@@ -2,7 +2,7 @@
 // alignment path rendering, and forward geocoding search.
 // Relies on the global `mapboxgl` (loaded via CDN <script> in index.html).
 
-import { DEG, RAD } from './config.js?v=1.2.15';
+import { DEG, RAD } from './config.js?v=1.3.1';
 
 const PATH_SOURCE_ID = 'alignment-path';
 const ARROWS_SOURCE_ID = 'alignment-arrows';

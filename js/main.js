@@ -16,14 +16,15 @@ import {
   heightToMeters,
   metersToFeet,
   kmToMeters,
-} from './config.js?v=1.2.15';
-import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.2.15';
-import { computeAlignmentPath } from './alignment.js?v=1.2.15';
-import { createMap, addLandmarkMarker, onMapClick, addBuildingsAndTerrain, renderAlignmentPath, renderVirtualPoint, geocode, setMapTheme } from './map.js?v=1.2.15';
-import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.2.15';
-import { createDatePicker } from './datepicker.js?v=1.2.15';
-import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.2.15';
-import { loadTheme, saveTheme } from './theme.js?v=1.2.15';
+} from './config.js?v=1.3.1';
+import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.3.1';
+import { computeAlignmentPath } from './alignment.js?v=1.3.1';
+import { createMap, addLandmarkMarker, onMapClick, addBuildingsAndTerrain, renderAlignmentPath, renderVirtualPoint, geocode, setMapTheme } from './map.js?v=1.3.1';
+import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.3.1';
+import { createDatePicker } from './datepicker.js?v=1.3.1';
+import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.3.1';
+import { loadTheme, saveTheme } from './theme.js?v=1.3.1';
+import { onOutsideClick } from './dom.js?v=1.3.1';
 
 const state = {
   landmark: { ...DEFAULT_LANDMARK },
@@ -121,7 +122,13 @@ function setTheme(theme) {
 themeDarkBtn.addEventListener('click', () => setTheme('dark'));
 themeLightBtn.addEventListener('click', () => setTheme('light'));
 
-let marker;
+// A Marker is a plain DOM overlay, not tied to the style/'load' event, so
+// this doesn't need to wait for `ready` — added synchronously right here
+// closes a race where interacting with the app (e.g. a very fast click)
+// before 'load' fires would otherwise find `marker` still undefined.
+const marker = addLandmarkMarker(map, state.landmark, (lonlat) => {
+  setLandmark({ name: 'Custom location', lat: lonlat.lat, lon: lonlat.lon });
+});
 
 function debounce(fn, ms) {
   let t;
@@ -343,8 +350,8 @@ searchResultsEl.addEventListener('mousedown', (e) => {
   setLandmark({ name: result.name, lat: result.lat, lon: result.lon }, { flyTo: true });
 });
 
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('.controlbar-search')) searchResultsEl.hidden = true;
+onOutsideClick(document.querySelector('.controlbar-search'), () => {
+  searchResultsEl.hidden = true;
 });
 
 // ----- numeric inputs (each paired with a slider that mirrors it live) -----
@@ -489,10 +496,6 @@ ready.then(() => {
   mapIsReady = true;
   addBuildingsAndTerrain(map);
   setMapTheme(map, state.theme);
-
-  marker = addLandmarkMarker(map, state.landmark, (lonlat) => {
-    setLandmark({ name: 'Custom location', lat: lonlat.lat, lon: lonlat.lon });
-  });
 
   onMapClick(map, (lonlat) => {
     if (lonlat.buildingHeightM != null) applyBuildingHeight(lonlat.buildingHeightM);
