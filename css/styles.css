@@ -32,7 +32,6 @@
      not replaced by — our own explicit hover styles below. */
   color-scheme: dark;
   --bg: #000000;
-  --panel-bg: #000000;
   --card-bg: #141414;
   --border: #2c3038;
   --text: #eceef1;
@@ -55,7 +54,6 @@
 :root[data-theme="light"] {
   color-scheme: light;
   --bg: #ffffff;
-  --panel-bg: #ffffff;
   --card-bg: #f1f2f4;
   --border: #dde0e5;
   --text: #14161a;
@@ -683,7 +681,7 @@ body {
   max-width: 600px;
   padding: 20px;
   overflow-y: auto;
-  background: var(--panel-bg);
+  background: var(--bg);
   border-left: 1px solid var(--border);
 }
 

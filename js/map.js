@@ -2,6 +2,8 @@
 // alignment path rendering, and forward geocoding search.
 // Relies on the global `mapboxgl` (loaded via CDN <script> in index.html).
 
+import { DEG, RAD } from './config.js?v=1.2.15';
+
 const PATH_SOURCE_ID = 'alignment-path';
 const ARROWS_SOURCE_ID = 'alignment-arrows';
 const TIMESTAMPS_SOURCE_ID = 'alignment-timestamps';
@@ -25,9 +27,6 @@ const LABEL_CONFIG_PROPERTIES = [
   'showPlaceLabels',
   'showTransitLabels',
 ];
-
-const DEG = Math.PI / 180;
-const RAD = 180 / Math.PI;
 
 // The path's own sample points for the segment currently under the mouse,
 // kept in module scope so the hover handler (wired once) always reads
@@ -588,9 +587,6 @@ export function renderAlignmentPath(map, points) {
   wireHover(map);
 }
 
-export function clearAlignmentPath(map) {
-  renderAlignmentPath(map, []);
-}
 
 const METERS_PER_DEG_LAT = 111320;
 

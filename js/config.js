@@ -46,10 +46,6 @@ export const DEFAULT_MAP_CENTER_OFFSET_LAT = 0.00028; // ~31m north
 // "Auto-set height" legend toggle (see map.js) is switched on.
 export const DEFAULT_TARGET_HEIGHT_FT = 1900;
 
-// Observer eye-level elevation above sea level. v1 assumes flat terrain
-// at sea level (see brief section 6) rather than looking up local ground elevation.
-export const OBSERVER_ELEVATION_M = 0;
-
 // How far from the landmark we'll search for a valid alignment point, in km.
 // Configurable rather than hardcoded — exposed as a control-bar input.
 export const DEFAULT_MAX_DISTANCE_KM = 8;
@@ -84,6 +80,11 @@ export const LIVE_REFRESH_MS = 10_000;
 
 export const FEET_PER_METER = 3.28084;
 export const METERS_PER_KM = 1000;
+
+// Degree<->radian conversion factors — shared here since alignment.js's
+// geodesic math and map.js's bearing/footprint math both need them.
+export const DEG = Math.PI / 180;
+export const RAD = 180 / Math.PI;
 
 export function feetToMeters(ft) {
   return ft / FEET_PER_METER;

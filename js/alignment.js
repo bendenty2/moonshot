@@ -14,11 +14,10 @@
 // acceptable v1 scope decision (curvature only matters at the multi-km+
 // distances this tool isn't meant to reach anyway).
 
-import { makeObserver, moonHorizontal } from './astro.js?v=1.2.14';
+import { makeObserver, moonHorizontal } from './astro.js?v=1.2.15';
+import { DEG, RAD } from './config.js?v=1.2.15';
 
 const EARTH_RADIUS_M = 6371000;
-const DEG = Math.PI / 180;
-const RAD = 180 / Math.PI;
 
 // Destination point given a start lat/lon, bearing (deg), and distance (m).
 function destinationPoint(lat, lon, bearingDeg, distanceM) {

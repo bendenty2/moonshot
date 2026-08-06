@@ -2,8 +2,6 @@
 // browser build, loaded via <script> in index.html) for everything the moon
 // info panel and alignment path need.
 
-const MOON_QUARTER_NAMES = ['New Moon', 'First Quarter', 'Full Moon', 'Last Quarter'];
-
 export function makeObserver(lat, lon, elevationM = 0) {
   return new Astronomy.Observer(lat, lon, elevationM);
 }
@@ -104,5 +102,3 @@ export function nextFullMoon(date) {
 export function nextNewMoon(date) {
   return nextQuarter(date, 0);
 }
-
-export { MOON_QUARTER_NAMES };
