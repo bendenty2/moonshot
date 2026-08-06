@@ -1114,9 +1114,25 @@ body {
     display: none;
   }
   .map-pane {
-    height: 60vh;
+    /* flex-shrink:0 (via flex: 0 0 auto) is the actual fix here — the base
+       rule's flex: 1 1 auto let the map get squeezed down to almost
+       nothing, because .panel-pane below still had its desktop flex: 0 0
+       auto (never shrinks, sized to its full natural content height) and
+       something had to give in the fixed column space. Bounded with
+       min/max so it stays sane on both very short and very tall phones. */
+    flex: 0 0 auto;
+    height: 45vh;
+    min-height: 220px;
+    max-height: 420px;
   }
   .panel-pane {
+    /* The other half of the fix: flex: 1 1 auto + min-height: 0 makes this
+       take only whatever space is left after the map above, instead of
+       forcing the whole page taller than the viewport — its existing
+       overflow-y: auto (see the base .panel-pane rule) then scrolls its
+       own content within that space rather than pushing the map off. */
+    flex: 1 1 auto;
+    min-height: 0;
     width: 100%;
     max-width: none;
     border-left: none;
