@@ -139,6 +139,69 @@ class MapControlsPanel {
   }
 }
 
+// N/E/S/W compass rose, top-right. The four buttons stay at fixed screen
+// positions (so they're always easy to find/click) and each eases the map
+// to the bearing that puts that direction "up" — Mapbox's bearing is the
+// compass direction that's up, so N=0, E=90, S=180, W=270. The dial itself
+// counter-rotates against the map's current bearing so it always shows
+// true orientation (like a real compass), while each letter is individually
+// counter-counter-rotated back upright so the labels stay readable — the
+// classic "ring rotates, labels don't" compass-rose technique.
+const COMPASS_DIRECTIONS = [
+  { label: 'N', bearing: 0, name: 'north', cls: 'compass-n' },
+  { label: 'E', bearing: 90, name: 'east', cls: 'compass-e' },
+  { label: 'S', bearing: 180, name: 'south', cls: 'compass-s' },
+  { label: 'W', bearing: 270, name: 'west', cls: 'compass-w' },
+];
+
+class CompassControl {
+  onAdd(map) {
+    this._map = map;
+    this._container = document.createElement('div');
+    this._container.className = 'mapboxgl-ctrl compass-control';
+
+    this._dial = document.createElement('div');
+    this._dial.className = 'compass-dial';
+
+    this._labels = COMPASS_DIRECTIONS.map(({ label, bearing, name, cls }) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `compass-btn ${cls}`;
+      btn.setAttribute('aria-label', `Face ${name}`);
+
+      const span = document.createElement('span');
+      span.className = 'compass-btn-label';
+      span.textContent = label;
+      btn.append(span);
+
+      btn.addEventListener('click', () => map.easeTo({ bearing }));
+
+      this._dial.append(btn);
+      return span;
+    });
+
+    this._container.append(this._dial);
+
+    map.on('rotate', () => this._sync());
+    this._sync();
+
+    return this._container;
+  }
+
+  onRemove() {
+    this._container.remove();
+    this._map = undefined;
+  }
+
+  _sync() {
+    const bearing = this._map.getBearing();
+    this._dial.style.transform = `rotate(${-bearing}deg)`;
+    this._labels.forEach((span) => {
+      span.style.transform = `rotate(${bearing}deg)`;
+    });
+  }
+}
+
 export function createMap(containerId, { token, style, center, zoom = 15, pitch = 0, bearing = 0 }) {
   mapboxgl.accessToken = token;
 
@@ -151,6 +214,7 @@ export function createMap(containerId, { token, style, center, zoom = 15, pitch 
     bearing,
   });
   map.addControl(new MapControlsPanel(), 'bottom-right');
+  map.addControl(new CompassControl(), 'top-right');
   map.addControl(new mapboxgl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-left');
 
   const ready = new Promise((resolve) => map.on('load', resolve));
