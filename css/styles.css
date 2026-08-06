@@ -795,10 +795,15 @@ body {
 }
 
 /* Hover just fades the button slightly (whatever its current look already
-   is) instead of painting a new background over it — a background overlay
-   here previously read as a near-solid block that swallowed the "2D"/"3D"
-   text. */
-.view-mode-btn:hover:not(.is-active) {
+   is) instead of painting a new background over it. The real cause of an
+   earlier attempt at this still showing a solid grey block on hover:
+   Mapbox's own base CSS ships ".mapboxgl-ctrl button:not(:disabled):hover
+   { background-color: #eee }", and that selector's specificity (a class +
+   the "button" type + two pseudo-classes) actually beats a bare
+   ".view-mode-btn:hover:not(.is-active)" rule — the extra ".view-mode-
+   control" ancestor below is what's needed to out-specify it, not just
+   dropping the background-color declaration. */
+.view-mode-control .view-mode-btn:hover:not(.is-active) {
   background-color: transparent;
   color: var(--text);
   opacity: 0.65;
@@ -809,7 +814,8 @@ body {
   color: #fff;
 }
 
-.view-mode-btn.is-active:hover {
+.view-mode-control .view-mode-btn.is-active:hover {
+  background-color: var(--accent);
   opacity: 0.85;
 }
 
@@ -819,17 +825,19 @@ body {
 
 .mapboxgl-ctrl-scale {
   background:
-    repeating-linear-gradient(to right, var(--scale-color) 0 1px, transparent 1px 10px) left / 100% 6px no-repeat,
+    repeating-linear-gradient(to right, var(--scale-color) 0 1px, transparent 1px 10px) left top / 100% 6px no-repeat,
     linear-gradient(var(--scale-color), var(--scale-color)) left bottom / 100% 1px no-repeat;
   border: 0;
   border-radius: 0;
   color: var(--scale-color);
   font-family: var(--font-sans);
   font-size: 11px;
-  padding: 0 4px 6px;
+  /* Top padding clears the 6px tick-mark band above so the distance text
+     doesn't sit on top of (and get cut through by) the tick marks. */
+  padding: 9px 4px 6px;
 }
 
-/* ===== Map legend (label toggles, top-left) ===== */
+/* ===== Map control panel (labels/height toggles + 2D/3D, bottom-right) ===== */
 
 .map-legend {
   background: var(--card-bg);
@@ -839,6 +847,14 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* The 2D/3D pill is folded in as a row here rather than floating on its
+   own — keep it at its natural compact width instead of stretching to
+   fill the box (the parent flex column's default align-items: stretch
+   would otherwise widen it to match the toggle rows above). */
+.map-legend .view-mode-control {
+  align-self: flex-start;
 }
 
 .legend-row {

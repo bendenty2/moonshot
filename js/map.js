@@ -35,15 +35,56 @@ const RAD = 180 / Math.PI;
 let currentPoints = [];
 let tooltipEl = null;
 
-// Toggles the map between a flat top-down view and a tilted 3D view — a
-// purpose-built replacement for the compass "reset bearing to north" button
-// removed earlier, now covering pitch too (not just bearing) since there's
-// an actual 3D view to reset out of.
-class ViewModeControl {
+// Whether a building click should auto-fill the target-height slider with
+// that building's real height — the "Set height automatically" legend
+// toggle below. Off by default: the target height now just starts at
+// DEFAULT_TARGET_HEIGHT_FT and only otherwise changes via a favourite or a
+// manual edit, unless the owner opts back into the old auto-fill behavior.
+let autoHeightEnabled = false;
+
+// Bottom-right control panel: the Standard-style basemap-text toggle (see
+// LABEL_CONFIG_PROPERTIES above), the app-level "set height automatically"
+// preference, and the 2D/3D view-mode pill — all folded into one box
+// instead of separate floating controls. Pinch/scroll-wheel zoom covers
+// zooming (no +/- buttons anymore), so this and the scale bar are the map's
+// only chrome.
+class MapControlsPanel {
   onAdd(map) {
     this._map = map;
     this._container = document.createElement('div');
-    this._container.className = 'mapboxgl-ctrl view-mode-control';
+    this._container.className = 'mapboxgl-ctrl map-legend';
+    this._container.innerHTML = `
+      <label class="legend-row">
+        <span class="legend-toggle">
+          <input type="checkbox" class="legend-checkbox" data-config-group="labels" />
+          <span class="legend-slider"></span>
+        </span>
+        <span class="legend-label">Labels</span>
+      </label>
+      <label class="legend-row">
+        <span class="legend-toggle">
+          <input type="checkbox" class="legend-checkbox" data-pref="autoHeight" />
+          <span class="legend-slider"></span>
+        </span>
+        <span class="legend-label">Set height automatically</span>
+      </label>
+    `;
+
+    this._container.querySelector('.legend-checkbox[data-config-group="labels"]').addEventListener('change', (e) => {
+      LABEL_CONFIG_PROPERTIES.forEach((prop) => map.setConfigProperty('basemap', prop, e.target.checked));
+    });
+
+    this._container.querySelector('.legend-checkbox[data-pref="autoHeight"]').addEventListener('change', (e) => {
+      autoHeightEnabled = e.target.checked;
+    });
+
+    // 2D/3D view toggle — a purpose-built replacement for the compass
+    // "reset bearing to north" button removed earlier, now covering pitch
+    // too (not just bearing) since there's an actual 3D view to reset out
+    // of. Lives here as a row in the same box rather than its own separate
+    // floating pill.
+    const viewRow = document.createElement('div');
+    viewRow.className = 'view-mode-control';
 
     this._btn2d = document.createElement('button');
     this._btn2d.type = 'button';
@@ -75,7 +116,9 @@ class ViewModeControl {
     // sync showing "2D" active while the map is actually tilted into 3D.
     this._setActive(map.getPitch() > 0 ? '3d' : '2d');
 
-    this._container.append(this._btn2d, this._btn3d);
+    viewRow.append(this._btn2d, this._btn3d);
+    this._container.append(viewRow);
+
     return this._container;
   }
 
@@ -90,57 +133,6 @@ class ViewModeControl {
   }
 }
 
-// Whether a building click should auto-fill the target-height slider with
-// that building's real height — the "Set height automatically" legend
-// toggle below. Off by default: the target height now just starts at
-// DEFAULT_TARGET_HEIGHT_FT and only otherwise changes via a favourite or a
-// manual edit, unless the owner opts back into the old auto-fill behavior.
-let autoHeightEnabled = false;
-
-// Top-left legend: a single toggle for all of the Standard style's basemap
-// text (see LABEL_CONFIG_PROPERTIES above), plus the app-level "set height
-// automatically" preference. Pinch/scroll-wheel zoom covers zooming (no
-// +/- buttons anymore), so this and the view-mode control are the map's
-// only chrome besides the scale bar.
-class LegendControl {
-  onAdd(map) {
-    this._map = map;
-    this._container = document.createElement('div');
-    this._container.className = 'mapboxgl-ctrl map-legend';
-    this._container.innerHTML = `
-      <label class="legend-row">
-        <span class="legend-toggle">
-          <input type="checkbox" class="legend-checkbox" data-config-group="labels" />
-          <span class="legend-slider"></span>
-        </span>
-        <span class="legend-label">Labels</span>
-      </label>
-      <label class="legend-row">
-        <span class="legend-toggle">
-          <input type="checkbox" class="legend-checkbox" data-pref="autoHeight" />
-          <span class="legend-slider"></span>
-        </span>
-        <span class="legend-label">Set height automatically</span>
-      </label>
-    `;
-
-    this._container.querySelector('.legend-checkbox[data-config-group="labels"]').addEventListener('change', (e) => {
-      LABEL_CONFIG_PROPERTIES.forEach((prop) => map.setConfigProperty('basemap', prop, e.target.checked));
-    });
-
-    this._container.querySelector('.legend-checkbox[data-pref="autoHeight"]').addEventListener('change', (e) => {
-      autoHeightEnabled = e.target.checked;
-    });
-
-    return this._container;
-  }
-
-  onRemove() {
-    this._container.remove();
-    this._map = undefined;
-  }
-}
-
 export function createMap(containerId, { token, style, center, zoom = 15, pitch = 0, bearing = 0 }) {
   mapboxgl.accessToken = token;
 
@@ -152,8 +144,7 @@ export function createMap(containerId, { token, style, center, zoom = 15, pitch 
     pitch,
     bearing,
   });
-  map.addControl(new LegendControl(), 'top-left');
-  map.addControl(new ViewModeControl(), 'bottom-right');
+  map.addControl(new MapControlsPanel(), 'bottom-right');
   map.addControl(new mapboxgl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-left');
 
   const ready = new Promise((resolve) => map.on('load', resolve));
