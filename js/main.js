@@ -15,14 +15,14 @@ import {
   heightToMeters,
   metersToFeet,
   kmToMeters,
-} from './config.js?v=1.2.8';
-import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.2.8';
-import { computeAlignmentPath } from './alignment.js?v=1.2.8';
-import { createMap, addLandmarkMarker, onMapClick, addBuildingsAndTerrain, renderAlignmentPath, renderVirtualPoint, geocode, setMapTheme } from './map.js?v=1.2.8';
-import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.2.8';
-import { createDatePicker } from './datepicker.js?v=1.2.8';
-import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.2.8';
-import { loadTheme, saveTheme } from './theme.js?v=1.2.8';
+} from './config.js?v=1.2.9';
+import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.2.9';
+import { computeAlignmentPath } from './alignment.js?v=1.2.9';
+import { createMap, addLandmarkMarker, onMapClick, addBuildingsAndTerrain, renderAlignmentPath, renderVirtualPoint, geocode, setMapTheme } from './map.js?v=1.2.9';
+import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.2.9';
+import { createDatePicker } from './datepicker.js?v=1.2.9';
+import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.2.9';
+import { loadTheme, saveTheme } from './theme.js?v=1.2.9';
 
 const state = {
   landmark: { ...DEFAULT_LANDMARK },
@@ -54,6 +54,7 @@ const customBtn = document.getElementById('time-custom-btn');
 const footerYearEl = document.getElementById('footer-year');
 const favouriteStarBtn = document.getElementById('favourite-star-btn');
 const favouritesListEl = document.getElementById('favourites-list');
+const themeToggleEl = document.getElementById('theme-toggle');
 const themeDarkBtn = document.getElementById('theme-dark-btn');
 const themeLightBtn = document.getElementById('theme-light-btn');
 
@@ -87,6 +88,7 @@ function updateThemeToggleUI() {
   const isLight = state.theme === 'light';
   themeDarkBtn.classList.toggle('is-active', !isLight);
   themeLightBtn.classList.toggle('is-active', isLight);
+  themeToggleEl.classList.toggle('is-second-active', isLight);
 }
 
 updateThemeToggleUI();

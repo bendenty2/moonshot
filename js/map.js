@@ -36,8 +36,8 @@ let currentPoints = [];
 let tooltipEl = null;
 
 // Whether a building click should auto-fill the target-height slider with
-// that building's real height — the "Set height automatically" legend
-// toggle below. Off by default: the target height now just starts at
+// that building's real height — the "Set height on click" legend toggle
+// below. Off by default: the target height now just starts at
 // DEFAULT_TARGET_HEIGHT_FT and only otherwise changes via a favourite or a
 // manual edit, unless the owner opts back into the old auto-fill behavior.
 let autoHeightEnabled = false;
@@ -66,7 +66,7 @@ class MapControlsPanel {
           <input type="checkbox" class="legend-checkbox" data-pref="autoHeight" />
           <span class="legend-slider"></span>
         </span>
-        <span class="legend-label">Set height automatically</span>
+        <span class="legend-label">Set height on click</span>
       </label>
     `;
 
@@ -85,6 +85,11 @@ class MapControlsPanel {
     // floating pill.
     const viewRow = document.createElement('div');
     viewRow.className = 'view-mode-control';
+    this._viewRow = viewRow;
+
+    const highlight = document.createElement('div');
+    highlight.className = 'view-mode-highlight';
+    viewRow.append(highlight);
 
     this._btn2d = document.createElement('button');
     this._btn2d.type = 'button';
@@ -130,6 +135,7 @@ class MapControlsPanel {
   _setActive(mode) {
     this._btn2d.classList.toggle('is-active', mode === '2d');
     this._btn3d.classList.toggle('is-active', mode === '3d');
+    this._viewRow.classList.toggle('is-second-active', mode === '3d');
   }
 }
 
@@ -197,7 +203,7 @@ export function setMapTheme(map, theme) {
 
 // Fires on every map click with the clicked lng/lat, plus that spot's real
 // building height in meters if a building was actually clicked AND the
-// "Set height automatically" legend toggle is on — null otherwise (either
+// "Set height on click" legend toggle is on — null otherwise (either
 // no building was under the click, or the toggle is off). Standard's native
 // buildings aren't queryable via the classic queryRenderedFeatures (no
 // stable layer id to target), so this uses the newer Interactions/Featureset

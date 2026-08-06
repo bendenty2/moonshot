@@ -139,9 +139,12 @@ body {
   margin-left: 16px;
 }
 
+/* Fixed (not auto) width, and equal for both buttons — "Dark"/"Light"
+   differ in text length, but the sliding highlight assumes a 50/50 split
+   (see .view-mode-highlight above), so both segments must match. */
 .theme-toggle .view-mode-btn {
-  width: auto;
-  padding: 0 12px;
+  width: 56px;
+  padding: 0;
 }
 
 /* ===== Views (tab content) ===== */
@@ -757,11 +760,17 @@ body {
 }
 
 /* ===== Map 2D/3D view control =====
-   A rounded pill (two segments side by side) rather than Mapbox's usual
+   A rounded pill (two equal-width segments) rather than Mapbox's usual
    square stacked-button control group — reads softer, and the fully-round
-   ends make the active/inactive segment split easy to scan at a glance. */
+   ends make the active/inactive segment split easy to scan at a glance.
+   The accent highlight is its own absolutely-positioned layer that slides
+   left/right between segments (rather than each button's own background
+   flipping instantly) — both this and the theme toggle reuse it, which is
+   why both segments need to be equal width (a 50/50 split the highlight
+   can just translateX(100%) between, no per-instance width math needed). */
 
 .view-mode-control {
+  position: relative;
   display: flex;
   flex-direction: row;
   background: var(--card-bg);
@@ -771,7 +780,25 @@ body {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
+.view-mode-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background-color: var(--accent);
+  transition: transform 0.2s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.view-mode-control.is-second-active .view-mode-highlight {
+  transform: translateX(100%);
+}
+
 .view-mode-btn {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -790,10 +817,6 @@ body {
   transition: opacity 0.15s, color 0.15s;
 }
 
-.view-mode-btn + .view-mode-btn {
-  border-left: 1px solid var(--border);
-}
-
 /* Hover just fades the button slightly (whatever its current look already
    is) instead of painting a new background over it. The real cause of an
    earlier attempt at this still showing a solid grey block on hover:
@@ -810,12 +833,10 @@ body {
 }
 
 .view-mode-btn.is-active {
-  background-color: var(--accent);
   color: #fff;
 }
 
 .view-mode-control .view-mode-btn.is-active:hover {
-  background-color: var(--accent);
   opacity: 0.85;
 }
 
@@ -854,7 +875,7 @@ body {
    fill the box (the parent flex column's default align-items: stretch
    would otherwise widen it to match the toggle rows above). */
 .map-legend .view-mode-control {
-  align-self: flex-start;
+  align-self: center;
 }
 
 .legend-row {

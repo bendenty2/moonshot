@@ -1,4 +1,4 @@
-import { makeObserver, moonHorizontal, moonIllumination, moonPhaseName, nextMoonRiseSet, nextFullMoon, nextNewMoon } from './astro.js?v=1.2.8';
+import { makeObserver, moonHorizontal, moonIllumination, moonPhaseName, nextMoonRiseSet, nextFullMoon, nextNewMoon } from './astro.js?v=1.2.9';
 
 const AU_KM = 149_597_870.7;
 
@@ -44,7 +44,7 @@ export function computeMoonInfo(date, landmark) {
   return {
     now: date,
     phaseName,
-    illuminationPct: Math.round(fraction * 1000) / 10,
+    illuminationPct: Math.round(fraction * 10000) / 100,
     moonrise: rise,
     moonset: set,
     nextFullMoon: fullMoon,
@@ -84,7 +84,7 @@ export function renderMoonPanel(container, info) {
 
     <div class="panel-row panel-row--phase">
       <span class="panel-phase-name">${info.phaseName}</span>
-      <span class="panel-phase-pct">${info.illuminationPct.toFixed(1)}% illuminated</span>
+      <span class="panel-phase-pct">${info.illuminationPct.toFixed(2)}% illuminated</span>
     </div>
 
     <dl class="panel-facts">
@@ -96,9 +96,9 @@ export function renderMoonPanel(container, info) {
     <dl class="panel-facts panel-facts--secondary">
       <div class="panel-fact">
         <dt>Azimuth</dt>
-        <dd>${info.azimuth.toFixed(2)}° ${azimuthToCardinal(info.azimuth)} <span class="panel-azimuth-arrow" style="transform: rotate(${info.azimuth.toFixed(2)}deg)">&uarr;</span></dd>
+        <dd>${info.azimuth.toFixed(3)}° ${azimuthToCardinal(info.azimuth)} <span class="panel-azimuth-arrow" style="transform: rotate(${info.azimuth.toFixed(3)}deg)">&uarr;</span></dd>
       </div>
-      <div class="panel-fact"><dt>Altitude</dt><dd>${info.altitude.toFixed(2)}°</dd></div>
+      <div class="panel-fact"><dt>Altitude</dt><dd>${info.altitude.toFixed(3)}°</dd></div>
       <div class="panel-fact"><dt>Distance</dt><dd>${info.distanceKm.toLocaleString()} km</dd></div>
     </dl>
   `;

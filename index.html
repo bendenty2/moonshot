@@ -21,7 +21,7 @@
   </script>
 
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.28.0/mapbox-gl.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=1.2.8" />
+  <link rel="stylesheet" href="css/styles.css?v=1.2.9" />
   <!-- Self-hosted DM Sans (see @font-face in styles.css). Preload the primary
        latin file so text paints in the real face without a Google round-trip. -->
   <link rel="preload" href="fonts/dmsans-latin.woff2" as="font" type="font/woff2" crossorigin />
@@ -34,7 +34,8 @@
       <button type="button" class="topbar-tab is-active" data-view="alignment">Moon Alignment</button>
       <button type="button" class="topbar-tab" data-view="pov-arc">POV Arc</button>
     </nav>
-    <div class="view-mode-control theme-toggle" role="group" aria-label="Color theme">
+    <div id="theme-toggle" class="view-mode-control theme-toggle" role="group" aria-label="Color theme">
+      <div class="view-mode-highlight"></div>
       <button id="theme-dark-btn" class="view-mode-btn is-active" type="button" aria-label="Dark mode" title="Dark mode">Dark</button>
       <button id="theme-light-btn" class="view-mode-btn" type="button" aria-label="Light mode" title="Light mode">Light</button>
     </div>
@@ -105,12 +106,12 @@
   </div>
 
   <footer class="site-footer">
-    <span class="footer-version">v1.2.8</span>
+    <span class="footer-version">v1.2.9</span>
     <small>&copy; <span id="footer-year">2026</span> Benjamin d'Entremont. All rights reserved.</small>
   </footer>
 
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.28.0/mapbox-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
-  <script type="module" src="js/main.js?v=1.2.8"></script>
+  <script type="module" src="js/main.js?v=1.2.9"></script>
 </body>
 </html>
