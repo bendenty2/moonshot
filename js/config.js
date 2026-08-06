@@ -20,10 +20,14 @@ export const DEFAULT_LANDMARK = {
   lon: -79.3871,
 };
 
-// The map's initial camera — a tilted, zoomed-in 3D framing of the default
-// landmark (rather than a flat top-down start), matching the same
-// pitch/bearing the "3D" view-mode button eases to.
-export const DEFAULT_MAP_ZOOM = 16.2;
+// The map's initial camera — a tilted, zoomed-out-enough-to-see-the-whole-
+// tower 3D framing of the default landmark (rather than a flat top-down
+// start), matching the same pitch/bearing the "3D" view-mode button eases
+// to. Zoom pulled back a full level from an earlier attempt (16.2 -> 15.2)
+// per owner feedback comparing the scale bar's "50 m" vs "100 m" reading
+// at each — one scale-bar doubling is exactly one zoom level on Mapbox's
+// log2 scale, a more reliable anchor than eyeballing pixels.
+export const DEFAULT_MAP_ZOOM = 15.2;
 export const DEFAULT_MAP_PITCH = 60;
 export const DEFAULT_MAP_BEARING = -20;
 

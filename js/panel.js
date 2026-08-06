@@ -1,4 +1,4 @@
-import { makeObserver, moonHorizontal, moonIllumination, moonPhaseName, nextMoonRiseSet, nextFullMoon, nextNewMoon } from './astro.js?v=1.2.9';
+import { makeObserver, moonHorizontal, moonIllumination, moonPhaseName, nextMoonRiseSet, nextFullMoon, nextNewMoon } from './astro.js?v=1.2.10';
 
 const AU_KM = 149_597_870.7;
 
@@ -8,27 +8,31 @@ function azimuthToCardinal(deg) {
   return CARDINALS[Math.round(deg / 22.5) % 16];
 }
 
-function fmtDateTime(date) {
-  if (!date) return '—';
-  return date.toLocaleString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
-// Full precision, including seconds — used for the live-ticking "current time" row.
-export function formatExactTime(date) {
-  return date.toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    second: '2-digit',
-  });
+// Breaks a date into its separate weekday/month/day/year/time/meridiem
+// pieces instead of one opaque formatted string. Each piece becomes its
+// own grid column in the date rows below (see .panel-date-grid in
+// styles.css) — that's the only way to get proportional-width text to
+// actually line up between rows, since padding characters can't align a
+// non-monospace font the way they could in a plain-text table.
+//
+// The time/meridiem split is built from raw Date getters rather than
+// regex-splitting a toLocaleTimeString() string: that string's AM/PM
+// marker isn't reliably "AM"/"PM" across locales (e.g. "p.m." with
+// periods, lowercase), which a fixed regex would silently fail to split
+// out. Weekday/month are still locale-formatted since those are used
+// whole, not parsed back apart.
+function dateParts(date, { seconds = false } = {}) {
+  if (!date) return null;
+  const weekday = date.toLocaleDateString(undefined, { weekday: 'short' });
+  const month = date.toLocaleDateString(undefined, { month: 'short' });
+  const day = date.getDate();
+  const year = date.getFullYear();
+  const hour24 = date.getHours();
+  const hour12 = hour24 % 12 || 12;
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  const time = seconds ? `${hour12}:${minute}:${String(date.getSeconds()).padStart(2, '0')}` : `${hour12}:${minute}`;
+  const meridiem = hour24 < 12 ? 'AM' : 'PM';
+  return { weekday, month, day, year, time, meridiem };
 }
 
 export function computeMoonInfo(date, landmark) {
@@ -65,8 +69,26 @@ function chronological(rows) {
   });
 }
 
-function factRow([label, date]) {
-  return `<div class="panel-fact"><dt>${label}</dt><dd>${fmtDateTime(date)}</dd></div>`;
+// One row of the date grid: a label cell (column 1) plus either the six
+// weekday/month/day/year/time/meridiem cells, or — if the moon simply
+// doesn't rise/set that day — a single dash spanning the rest of the row.
+function dateGridRow([label, date], { seconds = false } = {}) {
+  const parts = dateParts(date, { seconds });
+  if (!parts) {
+    return `
+      <span class="pdg-label">${label}</span>
+      <span class="pdg-empty">—</span>
+    `;
+  }
+  return `
+      <span class="pdg-label">${label}</span>
+      <span class="pdg-cell pdg-weekday">${parts.weekday},</span>
+      <span class="pdg-cell pdg-month">${parts.month}</span>
+      <span class="pdg-cell pdg-day">${parts.day},</span>
+      <span class="pdg-cell pdg-year">${parts.year},</span>
+      <span class="pdg-cell pdg-time">${parts.time}</span>
+      <span class="pdg-cell pdg-meridiem">${parts.meridiem}</span>
+  `;
 }
 
 export function renderMoonPanel(container, info) {
@@ -87,11 +109,11 @@ export function renderMoonPanel(container, info) {
       <span class="panel-phase-pct">${info.illuminationPct.toFixed(2)}% illuminated</span>
     </div>
 
-    <dl class="panel-facts">
-      <div class="panel-fact"><dt>Current time</dt><dd id="panel-current-time">${formatExactTime(info.now)}</dd></div>
-      ${riseSetRows.map(factRow).join('\n      ')}
-      ${phaseRows.map(factRow).join('\n      ')}
-    </dl>
+    <div class="panel-date-grid">
+      ${dateGridRow(['Current time', info.now], { seconds: true })}
+      ${riseSetRows.map((row) => dateGridRow(row)).join('\n      ')}
+      ${phaseRows.map((row) => dateGridRow(row)).join('\n      ')}
+    </div>
 
     <dl class="panel-facts panel-facts--secondary">
       <div class="panel-fact">

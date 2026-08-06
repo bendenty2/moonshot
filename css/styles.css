@@ -727,6 +727,52 @@ body {
 .panel-fact dt { color: var(--text-dim); }
 .panel-fact dd { margin: 0; }
 
+/* ===== Moon panel date grid =====
+   The five date rows (current time + next moonrise/moonset/full/new moon)
+   as a real CSS grid, one column per weekday/month/day/year/time/meridiem
+   field, so each field lines up across rows the way a table's columns
+   would — without actually looking like a bordered table. Padding
+   characters can't do this for a proportional font, hence real grid
+   columns rather than plain text (see dateParts/dateGridRow in panel.js).
+   Column 1 (label) is 1fr so it eats the leftover width and pushes the
+   six date columns flush right, matching where .panel-fact's dd used to
+   sit via justify-content: space-between. */
+
+.panel-date-grid {
+  display: grid;
+  grid-template-columns: 1fr repeat(6, max-content);
+  column-gap: 6px;
+  font-size: 13px;
+}
+
+.pdg-label,
+.pdg-cell,
+.pdg-empty {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.pdg-label {
+  color: var(--text-dim);
+}
+
+.pdg-cell {
+  font-variant-numeric: tabular-nums;
+}
+
+.pdg-day,
+.pdg-year,
+.pdg-time {
+  text-align: right;
+}
+
+.pdg-empty {
+  grid-column: 2 / -1;
+  text-align: right;
+  color: var(--text-dim);
+}
+
 .panel-facts--secondary {
   margin-top: 16px;
 }
@@ -836,7 +882,15 @@ body {
   color: #fff;
 }
 
+/* Same fix as the inactive-hover rule above, for the active segment: without
+   an explicit background-color here, Mapbox's ".mapboxgl-ctrl button:not
+   (:disabled):hover { background-color: #eee }" was the only rule setting
+   that property on hover (the active look now comes entirely from the
+   separate .view-mode-highlight layer, not a background-color on the
+   button itself) — so it slipped through unopposed and whited out
+   whichever segment was already active on hover. */
 .view-mode-control .view-mode-btn.is-active:hover {
+  background-color: transparent;
   opacity: 0.85;
 }
 
