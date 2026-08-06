@@ -5,6 +5,7 @@ import {
   DEFAULT_MAP_ZOOM,
   DEFAULT_MAP_PITCH,
   DEFAULT_MAP_BEARING,
+  DEFAULT_MAP_CENTER_OFFSET_LAT,
   DEFAULT_TARGET_HEIGHT_FT,
   DEFAULT_MAX_DISTANCE_KM,
   TARGET_HEIGHT_RANGE,
@@ -15,14 +16,14 @@ import {
   heightToMeters,
   metersToFeet,
   kmToMeters,
-} from './config.js?v=1.2.11';
-import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.2.11';
-import { computeAlignmentPath } from './alignment.js?v=1.2.11';
-import { createMap, addLandmarkMarker, onMapClick, addBuildingsAndTerrain, renderAlignmentPath, renderVirtualPoint, geocode, setMapTheme } from './map.js?v=1.2.11';
-import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.2.11';
-import { createDatePicker } from './datepicker.js?v=1.2.11';
-import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.2.11';
-import { loadTheme, saveTheme } from './theme.js?v=1.2.11';
+} from './config.js?v=1.2.12';
+import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.2.12';
+import { computeAlignmentPath } from './alignment.js?v=1.2.12';
+import { createMap, addLandmarkMarker, onMapClick, addBuildingsAndTerrain, renderAlignmentPath, renderVirtualPoint, geocode, setMapTheme } from './map.js?v=1.2.12';
+import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.2.12';
+import { createDatePicker } from './datepicker.js?v=1.2.12';
+import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.2.12';
+import { loadTheme, saveTheme } from './theme.js?v=1.2.12';
 
 const state = {
   landmark: { ...DEFAULT_LANDMARK },
@@ -93,10 +94,14 @@ function updateThemeToggleUI() {
 
 updateThemeToggleUI();
 
+// The initial camera center is nudged slightly north of the landmark
+// (DEFAULT_MAP_CENTER_OFFSET_LAT) purely for opening-shot framing — the
+// marker, path algorithm, and everything else below still use
+// state.landmark's real, unshifted coordinate.
 const { map, ready } = createMap('map', {
   token: MAPBOX_TOKEN,
   style: MAPBOX_STYLE,
-  center: state.landmark,
+  center: { lat: state.landmark.lat + DEFAULT_MAP_CENTER_OFFSET_LAT, lon: state.landmark.lon },
   zoom: DEFAULT_MAP_ZOOM,
   pitch: DEFAULT_MAP_PITCH,
   bearing: DEFAULT_MAP_BEARING,

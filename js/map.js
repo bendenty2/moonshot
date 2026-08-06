@@ -47,8 +47,13 @@ let autoHeightEnabled = false;
 // preference, and the 2D/3D view-mode pill — all folded into one box
 // instead of separate floating controls. Pinch/scroll-wheel zoom covers
 // zooming (no +/- buttons anymore), so this and the scale bar are the map's
-// only chrome.
+// only chrome. Takes an onToggleCompass callback rather than reaching into
+// CompassControl directly, so the two controls stay decoupled.
 class MapControlsPanel {
+  constructor({ onToggleCompass } = {}) {
+    this._onToggleCompass = onToggleCompass;
+  }
+
   onAdd(map) {
     this._map = map;
     this._container = document.createElement('div');
@@ -68,6 +73,13 @@ class MapControlsPanel {
         </span>
         <span class="legend-label">Set height on click</span>
       </label>
+      <label class="legend-row">
+        <span class="legend-toggle">
+          <input type="checkbox" class="legend-checkbox" data-pref="showCompass" checked />
+          <span class="legend-slider"></span>
+        </span>
+        <span class="legend-label">Compass</span>
+      </label>
     `;
 
     this._container.querySelector('.legend-checkbox[data-config-group="labels"]').addEventListener('change', (e) => {
@@ -76,6 +88,10 @@ class MapControlsPanel {
 
     this._container.querySelector('.legend-checkbox[data-pref="autoHeight"]').addEventListener('change', (e) => {
       autoHeightEnabled = e.target.checked;
+    });
+
+    this._container.querySelector('.legend-checkbox[data-pref="showCompass"]').addEventListener('change', (e) => {
+      this._onToggleCompass?.(e.target.checked);
     });
 
     // 2D/3D view toggle — a purpose-built replacement for the compass
@@ -107,7 +123,7 @@ class MapControlsPanel {
       map.easeTo({ pitch: 0, bearing: 0 });
     });
     this._btn3d.addEventListener('click', () => {
-      map.easeTo({ pitch: 60, bearing: -20 });
+      map.easeTo({ pitch: 70, bearing: 0 });
     });
 
     // Single source of truth for the active button: driven off the map's
@@ -193,6 +209,10 @@ class CompassControl {
     this._map = undefined;
   }
 
+  setVisible(visible) {
+    this._container.style.display = visible ? '' : 'none';
+  }
+
   _sync() {
     const bearing = this._map.getBearing();
     this._dial.style.transform = `rotate(${-bearing}deg)`;
@@ -213,8 +233,9 @@ export function createMap(containerId, { token, style, center, zoom = 15, pitch 
     pitch,
     bearing,
   });
-  map.addControl(new MapControlsPanel(), 'bottom-right');
-  map.addControl(new CompassControl(), 'top-right');
+  const compass = new CompassControl();
+  map.addControl(new MapControlsPanel({ onToggleCompass: (visible) => compass.setVisible(visible) }), 'bottom-right');
+  map.addControl(compass, 'top-right');
   map.addControl(new mapboxgl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-left');
 
   const ready = new Promise((resolve) => map.on('load', resolve));
