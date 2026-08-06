@@ -2,6 +2,10 @@ import {
   MAPBOX_TOKEN,
   MAPBOX_STYLE,
   DEFAULT_LANDMARK,
+  DEFAULT_MAP_ZOOM,
+  DEFAULT_MAP_PITCH,
+  DEFAULT_MAP_BEARING,
+  DEFAULT_MAP_CENTER_OFFSET_LAT,
   DEFAULT_TARGET_HEIGHT_FT,
   DEFAULT_MAX_DISTANCE_KM,
   TARGET_HEIGHT_RANGE,
@@ -12,13 +16,15 @@ import {
   heightToMeters,
   metersToFeet,
   kmToMeters,
-} from './config.js?v=1.2.4';
-import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.2.4';
-import { computeAlignmentPath } from './alignment.js?v=1.2.4';
-import { createMap, addLandmarkMarker, onMapClick, addBuildingsAndTerrain, renderAlignmentPath, renderVirtualPoint, geocode } from './map.js?v=1.2.4';
-import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.2.4';
-import { createDatePicker } from './datepicker.js?v=1.2.4';
-import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.2.4';
+} from './config.js?v=1.3.1';
+import { makeObserver, nextFullMoon, moonUpWindow } from './astro.js?v=1.3.1';
+import { computeAlignmentPath } from './alignment.js?v=1.3.1';
+import { createMap, addLandmarkMarker, onMapClick, addBuildingsAndTerrain, renderAlignmentPath, renderVirtualPoint, geocode, setMapTheme } from './map.js?v=1.3.1';
+import { computeMoonInfo, renderMoonPanel } from './panel.js?v=1.3.1';
+import { createDatePicker } from './datepicker.js?v=1.3.1';
+import { loadFavourites, addFavourite, updateFavourite, removeFavourite, renderFavourites } from './favourites.js?v=1.3.1';
+import { loadTheme, saveTheme } from './theme.js?v=1.3.1';
+import { onOutsideClick } from './dom.js?v=1.3.1';
 
 const state = {
   landmark: { ...DEFAULT_LANDMARK },
@@ -33,6 +39,7 @@ const state = {
   // The favourite (if any) that the current landmark + target height were
   // just loaded from — drives the star's filled/unfilled state.
   activeFavouriteId: null,
+  theme: loadTheme(), // 'dark' | 'light'
 };
 
 const panelEl = document.getElementById('moon-panel');
@@ -49,6 +56,9 @@ const customBtn = document.getElementById('time-custom-btn');
 const footerYearEl = document.getElementById('footer-year');
 const favouriteStarBtn = document.getElementById('favourite-star-btn');
 const favouritesListEl = document.getElementById('favourites-list');
+const themeToggleEl = document.getElementById('theme-toggle');
+const themeDarkBtn = document.getElementById('theme-dark-btn');
+const themeLightBtn = document.getElementById('theme-light-btn');
 
 function applyHeightRange(unit) {
   const range = TARGET_HEIGHT_RANGE[unit];
@@ -70,13 +80,55 @@ distanceInput.value = state.maxDistanceKm;
 
 footerYearEl.textContent = String(new Date().getFullYear());
 
+// index.html's inline anti-flash script may have already set this (for a
+// stored 'light' preference) before this module even loaded — setting it
+// again here for the 'dark' case is a harmless no-op, and keeps this the
+// single place that owns applying state.theme to the DOM going forward.
+document.documentElement.dataset.theme = state.theme;
+
+function updateThemeToggleUI() {
+  const isLight = state.theme === 'light';
+  themeDarkBtn.classList.toggle('is-active', !isLight);
+  themeLightBtn.classList.toggle('is-active', isLight);
+  themeToggleEl.classList.toggle('is-second-active', isLight);
+}
+
+updateThemeToggleUI();
+
+// The initial camera center is nudged slightly north of the landmark
+// (DEFAULT_MAP_CENTER_OFFSET_LAT) purely for opening-shot framing — the
+// marker, path algorithm, and everything else below still use
+// state.landmark's real, unshifted coordinate.
 const { map, ready } = createMap('map', {
   token: MAPBOX_TOKEN,
   style: MAPBOX_STYLE,
-  center: state.landmark,
+  center: { lat: state.landmark.lat + DEFAULT_MAP_CENTER_OFFSET_LAT, lon: state.landmark.lon },
+  zoom: DEFAULT_MAP_ZOOM,
+  pitch: DEFAULT_MAP_PITCH,
+  bearing: DEFAULT_MAP_BEARING,
 });
 
-let marker;
+let mapIsReady = false;
+
+function setTheme(theme) {
+  if (theme === state.theme) return;
+  state.theme = theme;
+  document.documentElement.dataset.theme = theme;
+  saveTheme(theme);
+  updateThemeToggleUI();
+  if (mapIsReady) setMapTheme(map, theme);
+}
+
+themeDarkBtn.addEventListener('click', () => setTheme('dark'));
+themeLightBtn.addEventListener('click', () => setTheme('light'));
+
+// A Marker is a plain DOM overlay, not tied to the style/'load' event, so
+// this doesn't need to wait for `ready` — added synchronously right here
+// closes a race where interacting with the app (e.g. a very fast click)
+// before 'load' fires would otherwise find `marker` still undefined.
+const marker = addLandmarkMarker(map, state.landmark, (lonlat) => {
+  setLandmark({ name: 'Custom location', lat: lonlat.lat, lon: lonlat.lon });
+});
 
 function debounce(fn, ms) {
   let t;
@@ -298,8 +350,8 @@ searchResultsEl.addEventListener('mousedown', (e) => {
   setLandmark({ name: result.name, lat: result.lat, lon: result.lon }, { flyTo: true });
 });
 
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('.controlbar-search')) searchResultsEl.hidden = true;
+onOutsideClick(document.querySelector('.controlbar-search'), () => {
+  searchResultsEl.hidden = true;
 });
 
 // ----- numeric inputs (each paired with a slider that mirrors it live) -----
@@ -441,11 +493,9 @@ makeResizable(document.getElementById('panel-resizer'), document.querySelector('
 // ----- init -----
 
 ready.then(() => {
+  mapIsReady = true;
   addBuildingsAndTerrain(map);
-
-  marker = addLandmarkMarker(map, state.landmark, (lonlat) => {
-    setLandmark({ name: 'Custom location', lat: lonlat.lat, lon: lonlat.lon });
-  });
+  setMapTheme(map, state.theme);
 
   onMapClick(map, (lonlat) => {
     if (lonlat.buildingHeightM != null) applyBuildingHeight(lonlat.buildingHeightM);

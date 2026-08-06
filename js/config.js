@@ -20,16 +20,31 @@ export const DEFAULT_LANDMARK = {
   lon: -79.3871,
 };
 
-// Virtual target point elevation, in feet above the landmark's base. A plain
-// starting default (not tied to any particular landmark) — the owner edits
-// it manually or picks a favourite; the old auto-fill-from-clicked-building
-// behavior is now opt-in (see the "Set height automatically" legend toggle
-// in map.js).
-export const DEFAULT_TARGET_HEIGHT_FT = 500;
+// The map's initial camera — a tilted 3D framing of the default landmark
+// (rather than a flat top-down start). Bearing 0 faces exactly north.
+// Pitch raised from the view-mode "3D" button's 60 to a shallower
+// (more horizon-level, less overhead) 70 per owner feedback. Zoom pulled
+// back slightly from 15.5 -> 15.35 per a follow-up "just a bit more" nudge.
+export const DEFAULT_MAP_ZOOM = 15.35;
+export const DEFAULT_MAP_PITCH = 70;
+export const DEFAULT_MAP_BEARING = 0;
 
-// Observer eye-level elevation above sea level. v1 assumes flat terrain
-// at sea level (see brief section 6) rather than looking up local ground elevation.
-export const OBSERVER_ELEVATION_M = 0;
+// A small camera-only nudge north of the landmark's real coordinate, so
+// the tilted opening view sits the tower a little closer to the viewer
+// instead of exactly on the pitch's natural center line — "shifted
+// slightly towards the CN Tower" per owner feedback, increased once
+// (0.00018 -> 0.00028, ~20m -> ~31m) on a follow-up "slightly more" nudge.
+// Deliberately only applied to the initial camera's center (see main.js),
+// not to state.landmark itself: the marker, path algorithm, and favourites all
+// still need the landmark's true, unshifted coordinate.
+export const DEFAULT_MAP_CENTER_OFFSET_LAT = 0.00028; // ~31m north
+
+// Virtual target point elevation, in feet above the landmark's base.
+// ~1900 ft puts a full moon reading just above the CN Tower's spire — the
+// standard opening location + height the app always starts at. From here,
+// height only changes via picking a favourite or a manual edit, unless the
+// "Auto-set height" legend toggle (see map.js) is switched on.
+export const DEFAULT_TARGET_HEIGHT_FT = 1900;
 
 // How far from the landmark we'll search for a valid alignment point, in km.
 // Configurable rather than hardcoded — exposed as a control-bar input.
@@ -65,6 +80,11 @@ export const LIVE_REFRESH_MS = 10_000;
 
 export const FEET_PER_METER = 3.28084;
 export const METERS_PER_KM = 1000;
+
+// Degree<->radian conversion factors — shared here since alignment.js's
+// geodesic math and map.js's bearing/footprint math both need them.
+export const DEG = Math.PI / 180;
+export const RAD = 180 / Math.PI;
 
 export function feetToMeters(ft) {
   return ft / FEET_PER_METER;

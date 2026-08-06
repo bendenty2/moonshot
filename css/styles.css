@@ -21,18 +21,47 @@
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
+/* Dark is the default (no data-theme attribute); the site-wide theme toggle
+   (js/main.js) sets data-theme="light" on <html> for the alternate palette
+   below. Non-color tokens (spacing, font) don't need a light variant. */
 :root {
+  /* Tells the browser our own theming (not its OS-level dark-mode guess) is
+     authoritative for native form-control rendering. Without this, Chrome
+     on a dark-mode OS was synthesizing its own dark-mode hover highlight
+     (a flat grey fill) over the 2D/3D and theme pill buttons, on top of —
+     not replaced by — our own explicit hover styles below. */
+  color-scheme: dark;
   --bg: #000000;
-  --panel-bg: #000000;
   --card-bg: #141414;
   --border: #2c3038;
   --text: #eceef1;
   --text-dim: #9aa1ad;
   --accent: #2d4a9e;
+  --hover-wash: rgba(255, 255, 255, 0.06);
+  --footer-text: rgba(255, 255, 255, 0.7);
+  --footer-text-dim: rgba(255, 255, 255, 0.5);
+  /* The scale bar sits directly on the map canvas, not app chrome, so it
+     needs contrast against the *map's* own light/dark rendering — which is
+     the opposite of --border/--text-dim's dark-in-dark-theme relationship
+     (those exist for contrast against the app's black/white backgrounds). */
+  --scale-color: rgba(255, 255, 255, 0.9);
   --topbar-h: 44px;
   --controlbar-h: 64px;
   --footer-h: 32px;
   --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #ffffff;
+  --card-bg: #f1f2f4;
+  --border: #dde0e5;
+  --text: #14161a;
+  --text-dim: #666d79;
+  --hover-wash: rgba(0, 0, 0, 0.05);
+  --footer-text: rgba(0, 0, 0, 0.65);
+  --footer-text-dim: rgba(0, 0, 0, 0.45);
+  --scale-color: rgba(0, 0, 0, 0.75);
 }
 
 * { box-sizing: border-box; }
@@ -58,7 +87,7 @@ body {
   display: flex;
   align-items: center;
   padding: 0 20px;
-  background: #000000;
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
 }
 
@@ -90,7 +119,7 @@ body {
 }
 
 .topbar-tab:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--hover-wash);
   color: var(--text);
 }
 
@@ -98,6 +127,22 @@ body {
   color: var(--text);
   border-bottom-color: var(--accent);
   font-weight: 500;
+}
+
+/* Reuses .view-mode-control/.view-mode-btn's pill look (see the map 2D/3D
+   control below) so the two toggles read as the same UI pattern — only
+   positioning and button width (to fit "Dark"/"Light" text instead of the
+   2D/3D pill's fixed 2-character width) are specific to this instance. */
+.theme-toggle {
+  margin-left: 16px;
+}
+
+/* Fixed (not auto) width, and equal for both buttons — "Dark"/"Light"
+   differ in text length, but the sliding highlight assumes a 50/50 split
+   (see .view-mode-highlight above), so both segments must match. */
+.theme-toggle .view-mode-btn {
+  width: 56px;
+  padding: 0;
 }
 
 /* ===== Views (tab content) ===== */
@@ -128,7 +173,7 @@ body {
   align-items: center;
   gap: 24px;
   padding: 0 20px;
-  background: #000000;
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
 }
@@ -303,7 +348,7 @@ body {
 }
 
 .time-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--hover-wash);
   color: var(--text);
 }
 
@@ -423,7 +468,7 @@ body {
   flex-direction: column;
   gap: 16px;
   overflow-y: auto;
-  background: #000000;
+  background: var(--bg);
   border-right: 1px solid var(--border);
 }
 
@@ -517,7 +562,7 @@ body {
 }
 
 .favourite-item:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--hover-wash);
 }
 
 .favourite-select {
@@ -636,7 +681,7 @@ body {
   max-width: 600px;
   padding: 20px;
   overflow-y: auto;
-  background: var(--panel-bg);
+  background: var(--bg);
   border-left: 1px solid var(--border);
 }
 
@@ -680,6 +725,52 @@ body {
 .panel-fact dt { color: var(--text-dim); }
 .panel-fact dd { margin: 0; }
 
+/* ===== Moon panel date grid =====
+   The five date rows (current time + next moonrise/moonset/full/new moon)
+   as a real CSS grid, one column per weekday/month/day/year/time/meridiem
+   field, so each field lines up across rows the way a table's columns
+   would — without actually looking like a bordered table. Padding
+   characters can't do this for a proportional font, hence real grid
+   columns rather than plain text (see dateParts/dateGridRow in panel.js).
+   Column 1 (label) is 1fr so it eats the leftover width and pushes the
+   six date columns flush right, matching where .panel-fact's dd used to
+   sit via justify-content: space-between. */
+
+.panel-date-grid {
+  display: grid;
+  grid-template-columns: 1fr repeat(6, max-content);
+  column-gap: 6px;
+  font-size: 13px;
+}
+
+.pdg-label,
+.pdg-cell,
+.pdg-empty {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.pdg-label {
+  color: var(--text-dim);
+}
+
+.pdg-cell {
+  font-variant-numeric: tabular-nums;
+}
+
+.pdg-day,
+.pdg-year,
+.pdg-time {
+  text-align: right;
+}
+
+.pdg-empty {
+  grid-column: 2 / -1;
+  text-align: right;
+  color: var(--text-dim);
+}
+
 .panel-facts--secondary {
   margin-top: 16px;
 }
@@ -712,36 +803,198 @@ body {
   white-space: nowrap;
 }
 
-/* ===== Map 2D/3D view control ===== */
+/* ===== Map 2D/3D view control =====
+   A rounded pill (two equal-width segments) rather than Mapbox's usual
+   square stacked-button control group — reads softer, and the fully-round
+   ends make the active/inactive segment split easy to scan at a glance.
+   The accent highlight is its own absolutely-positioned layer that slides
+   left/right between segments (rather than each button's own background
+   flipping instantly) — both this and the theme toggle reuse it, which is
+   why both segments need to be equal width (a 50/50 split the highlight
+   can just translateX(100%) between, no per-instance width math needed). */
 
 .view-mode-control {
+  position: relative;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.view-mode-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background-color: var(--accent);
+  transition: transform 0.2s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.view-mode-control.is-second-active .view-mode-highlight {
+  transform: translateX(100%);
 }
 
 .view-mode-btn {
-  display: block;
-  width: 29px;
-  height: 29px;
-  background: #fff;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 28px;
+  background-color: transparent;
+  appearance: none;
+  -webkit-appearance: none;
   border: 0;
   padding: 0;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
-  color: #333;
+  color: var(--text-dim);
   cursor: pointer;
-}
-
-.view-mode-btn + .view-mode-btn {
-  border-top: 1px solid #ddd;
+  opacity: 1;
+  transition: opacity 0.15s, color 0.15s;
 }
 
 .view-mode-btn.is-active {
-  background: var(--accent);
   color: #fff;
 }
 
-/* ===== Map legend (label toggles, top-left) ===== */
+/* Mapbox's own base CSS ships ".mapboxgl-ctrl button:not(:disabled):hover
+   { background-color: #eee }", and that selector's specificity (a class +
+   the "button" type + two pseudo-classes) beats a bare ":hover" rule on
+   our own buttons — the extra ancestor class on each selector below is
+   what's needed to out-specify it, not just dropping the background-color
+   declaration (a hover style that doesn't restate background-color still
+   loses to Mapbox's, since nothing else is left to override it). One
+   shared rule covers every inactive-state custom map-control button
+   (2D/3D pill, theme pill, compass) since they all get the identical
+   "fade to var(--text), no background" look; the pill's already-accent-
+   colored active segment gets its own opacity-only fade below, since its
+   color is already right. */
+.view-mode-control .view-mode-btn:hover:not(.is-active),
+.compass-control .compass-dial .compass-btn:hover {
+  background-color: transparent;
+  color: var(--text);
+}
+
+.view-mode-control .view-mode-btn:hover:not(.is-active) {
+  opacity: 0.65;
+}
+
+.view-mode-control .view-mode-btn.is-active:hover {
+  background-color: transparent;
+  opacity: 0.85;
+}
+
+/* ===== Map compass (top-right) =====
+   Four fixed-position N/E/S/W buttons around a circular dial, plus a live
+   heading readout below it. The dial counter-rotates against the map's
+   live bearing so it always reads as a true compass (see CompassControl
+   in map.js), while each letter is individually counter-counter-rotated
+   back upright so the buttons stay legible and easy to hit regardless of
+   the current rotation. */
+
+.compass-control {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.compass-face {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.compass-dial {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+
+.compass-heading {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.compass-btn {
+  position: absolute;
+  z-index: 1;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  padding: 0;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.compass-n { top: 2px; left: 50%; margin-left: -13px; }
+.compass-s { bottom: 2px; left: 50%; margin-left: -13px; }
+.compass-e { right: 2px; top: 50%; margin-top: -13px; }
+.compass-w { left: 2px; top: 50%; margin-top: -13px; }
+
+/* N reads as the "primary" mark, same way a real compass rose emphasizes
+   true north over the other three points. */
+.compass-n .compass-btn-label {
+  color: var(--accent);
+}
+
+.compass-btn-label {
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+/* The background-color/color hover reset for .compass-btn lives with
+   .view-mode-btn's above (same Mapbox base-CSS conflict, same fix). */
+.compass-n:hover .compass-btn-label {
+  color: var(--accent);
+}
+
+/* ===== Map scale control =====
+   Restyled to match the controlbar sliders' "number line" look (thin tick-
+   mark track + baseline) instead of Mapbox's default white bracket box. */
+
+.mapboxgl-ctrl-scale {
+  background:
+    repeating-linear-gradient(to right, var(--scale-color) 0 1px, transparent 1px 10px) left top / 100% 6px no-repeat,
+    linear-gradient(var(--scale-color), var(--scale-color)) left bottom / 100% 1px no-repeat;
+  border: 0;
+  border-radius: 0;
+  color: var(--scale-color);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  /* Top padding clears the 6px tick-mark band above so the distance text
+     doesn't sit on top of (and get cut through by) the tick marks. */
+  padding: 9px 4px 6px;
+}
+
+/* ===== Map control panel (labels/height toggles + 2D/3D, bottom-right) ===== */
 
 .map-legend {
   background: var(--card-bg);
@@ -751,6 +1004,14 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* The 2D/3D pill is folded in as a row here rather than floating on its
+   own — keep it at its natural compact width instead of stretching to
+   fill the box (the parent flex column's default align-items: stretch
+   would otherwise widen it to match the toggle rows above). */
+.map-legend .view-mode-control {
+  align-self: center;
 }
 
 .legend-row {
@@ -824,16 +1085,16 @@ body {
            max(clamp(18px, 5vw, 64px), env(safe-area-inset-right))
            0
            max(clamp(18px, 5vw, 64px), env(safe-area-inset-left));
-  background: #000000;
+  background: var(--bg);
   border-top: 1px solid var(--border);
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--footer-text);
   font-size: 11px;
   font-family: var(--font-sans);
   letter-spacing: 0.06em;
 }
 
 .footer-version {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--footer-text-dim);
   font-size: 11px;
   letter-spacing: 0.06em;
 }

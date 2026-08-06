@@ -2,6 +2,8 @@
 // alignment path rendering, and forward geocoding search.
 // Relies on the global `mapboxgl` (loaded via CDN <script> in index.html).
 
+import { DEG, RAD } from './config.js?v=1.3.1';
+
 const PATH_SOURCE_ID = 'alignment-path';
 const ARROWS_SOURCE_ID = 'alignment-arrows';
 const TIMESTAMPS_SOURCE_ID = 'alignment-timestamps';
@@ -15,8 +17,16 @@ const TERRAIN_SOURCE_ID = 'mapbox-dem';
 
 const LABEL_INTERVAL_MIN = 10;
 
-const DEG = Math.PI / 180;
-const RAD = 180 / Math.PI;
+// Every Standard-style basemap config property that renders text on the map
+// — grouped under the legend's single "Labels" toggle so business/landmark
+// names, street names, town/district/region names, and transit-station
+// names all show or hide together instead of needing separate switches.
+const LABEL_CONFIG_PROPERTIES = [
+  'showPointOfInterestLabels',
+  'showRoadLabels',
+  'showPlaceLabels',
+  'showTransitLabels',
+];
 
 // The path's own sample points for the segment currently under the mouse,
 // kept in module scope so the hover handler (wired once) always reads
@@ -24,15 +34,77 @@ const RAD = 180 / Math.PI;
 let currentPoints = [];
 let tooltipEl = null;
 
-// Toggles the map between a flat top-down view and a tilted 3D view — a
-// purpose-built replacement for the compass "reset bearing to north" button
-// removed earlier, now covering pitch too (not just bearing) since there's
-// an actual 3D view to reset out of.
-class ViewModeControl {
+// Whether a building click should auto-fill the target-height slider with
+// that building's real height — the "Auto-set height" legend toggle
+// below. Off by default: the target height now just starts at
+// DEFAULT_TARGET_HEIGHT_FT and only otherwise changes via a favourite or a
+// manual edit, unless the owner opts back into the old auto-fill behavior.
+let autoHeightEnabled = false;
+
+// Bottom-right control panel: the Standard-style basemap-text toggle (see
+// LABEL_CONFIG_PROPERTIES above), the app-level "set height automatically"
+// preference, and the 2D/3D view-mode pill — all folded into one box
+// instead of separate floating controls. Pinch/scroll-wheel zoom covers
+// zooming (no +/- buttons anymore), so this and the scale bar are the map's
+// only chrome. Takes an onToggleCompass callback rather than reaching into
+// CompassControl directly, so the two controls stay decoupled.
+class MapControlsPanel {
+  constructor({ onToggleCompass } = {}) {
+    this._onToggleCompass = onToggleCompass;
+  }
+
   onAdd(map) {
     this._map = map;
     this._container = document.createElement('div');
-    this._container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group view-mode-control';
+    this._container.className = 'mapboxgl-ctrl map-legend';
+    this._container.innerHTML = `
+      <label class="legend-row">
+        <span class="legend-toggle">
+          <input type="checkbox" class="legend-checkbox" data-config-group="labels" />
+          <span class="legend-slider"></span>
+        </span>
+        <span class="legend-label">Show labels</span>
+      </label>
+      <label class="legend-row">
+        <span class="legend-toggle">
+          <input type="checkbox" class="legend-checkbox" data-pref="autoHeight" />
+          <span class="legend-slider"></span>
+        </span>
+        <span class="legend-label">Auto-set height</span>
+      </label>
+      <label class="legend-row">
+        <span class="legend-toggle">
+          <input type="checkbox" class="legend-checkbox" data-pref="showCompass" checked />
+          <span class="legend-slider"></span>
+        </span>
+        <span class="legend-label">Show compass</span>
+      </label>
+    `;
+
+    this._container.querySelector('.legend-checkbox[data-config-group="labels"]').addEventListener('change', (e) => {
+      LABEL_CONFIG_PROPERTIES.forEach((prop) => map.setConfigProperty('basemap', prop, e.target.checked));
+    });
+
+    this._container.querySelector('.legend-checkbox[data-pref="autoHeight"]').addEventListener('change', (e) => {
+      autoHeightEnabled = e.target.checked;
+    });
+
+    this._container.querySelector('.legend-checkbox[data-pref="showCompass"]').addEventListener('change', (e) => {
+      this._onToggleCompass?.(e.target.checked);
+    });
+
+    // 2D/3D view toggle — a purpose-built replacement for the compass
+    // "reset bearing to north" button removed earlier, now covering pitch
+    // too (not just bearing) since there's an actual 3D view to reset out
+    // of. Lives here as a row in the same box rather than its own separate
+    // floating pill.
+    const viewRow = document.createElement('div');
+    viewRow.className = 'view-mode-control';
+    this._viewRow = viewRow;
+
+    const highlight = document.createElement('div');
+    highlight.className = 'view-mode-highlight';
+    viewRow.append(highlight);
 
     this._btn2d = document.createElement('button');
     this._btn2d.type = 'button';
@@ -50,7 +122,7 @@ class ViewModeControl {
       map.easeTo({ pitch: 0, bearing: 0 });
     });
     this._btn3d.addEventListener('click', () => {
-      map.easeTo({ pitch: 60, bearing: -20 });
+      map.easeTo({ pitch: 70, bearing: 0 });
     });
 
     // Single source of truth for the active button: driven off the map's
@@ -58,8 +130,15 @@ class ViewModeControl {
     // dragging into/out of a tilted view (right-click drag, two-finger
     // touch) keeps the control in sync too, not just clicking the buttons.
     map.on('pitch', () => this._setActive(map.getPitch() > 0 ? '3d' : '2d'));
+    // The map now opens already tilted (see DEFAULT_MAP_PITCH in config.js),
+    // and that initial camera doesn't fire a 'pitch' event — set the
+    // control's own initial state explicitly so it doesn't start out of
+    // sync showing "2D" active while the map is actually tilted into 3D.
+    this._setActive(map.getPitch() > 0 ? '3d' : '2d');
 
-    this._container.append(this._btn2d, this._btn3d);
+    viewRow.append(this._btn2d, this._btn3d);
+    this._container.append(viewRow);
+
     return this._container;
   }
 
@@ -71,58 +150,66 @@ class ViewModeControl {
   _setActive(mode) {
     this._btn2d.classList.toggle('is-active', mode === '2d');
     this._btn3d.classList.toggle('is-active', mode === '3d');
+    this._viewRow.classList.toggle('is-second-active', mode === '3d');
   }
 }
 
-// Whether a building click should auto-fill the target-height slider with
-// that building's real height — the "Set height automatically" legend
-// toggle below. Off by default: the target height now just starts at
-// DEFAULT_TARGET_HEIGHT_FT and only otherwise changes via a favourite or a
-// manual edit, unless the owner opts back into the old auto-fill behavior.
-let autoHeightEnabled = false;
+// N/E/S/W compass rose, top-right. The four buttons stay at fixed screen
+// positions (so they're always easy to find/click) and each eases the map
+// to the bearing that puts that direction "up" — Mapbox's bearing is the
+// compass direction that's up, so N=0, E=90, S=180, W=270. The dial itself
+// counter-rotates against the map's current bearing so it always shows
+// true orientation (like a real compass), while each letter is individually
+// counter-counter-rotated back upright so the labels stay readable — the
+// classic "ring rotates, labels don't" compass-rose technique.
+const COMPASS_DIRECTIONS = [
+  { label: 'N', bearing: 0, name: 'north', cls: 'compass-n' },
+  { label: 'E', bearing: 90, name: 'east', cls: 'compass-e' },
+  { label: 'S', bearing: 180, name: 'south', cls: 'compass-s' },
+  { label: 'W', bearing: 270, name: 'west', cls: 'compass-w' },
+];
 
-// Top-left legend: toggles for the Standard style's basemap label config,
-// plus the app-level "set height automatically" preference. Pinch/scroll-
-// wheel zoom covers zooming (no +/- buttons anymore), so this and the
-// view-mode control are the map's only chrome besides the scale bar.
-class LegendControl {
+class CompassControl {
   onAdd(map) {
     this._map = map;
     this._container = document.createElement('div');
-    this._container.className = 'mapboxgl-ctrl map-legend';
-    this._container.innerHTML = `
-      <label class="legend-row">
-        <span class="legend-toggle">
-          <input type="checkbox" class="legend-checkbox" data-config="showPointOfInterestLabels" checked />
-          <span class="legend-slider"></span>
-        </span>
-        <span class="legend-label">Business &amp; landmark labels</span>
-      </label>
-      <label class="legend-row">
-        <span class="legend-toggle">
-          <input type="checkbox" class="legend-checkbox" data-config="showRoadLabels" checked />
-          <span class="legend-slider"></span>
-        </span>
-        <span class="legend-label">Street names</span>
-      </label>
-      <label class="legend-row">
-        <span class="legend-toggle">
-          <input type="checkbox" class="legend-checkbox" data-pref="autoHeight" />
-          <span class="legend-slider"></span>
-        </span>
-        <span class="legend-label">Set height automatically</span>
-      </label>
-    `;
+    this._container.className = 'mapboxgl-ctrl compass-control';
 
-    this._container.querySelectorAll('.legend-checkbox[data-config]').forEach((checkbox) => {
-      checkbox.addEventListener('change', () => {
-        map.setConfigProperty('basemap', checkbox.dataset.config, checkbox.checked);
-      });
+    const face = document.createElement('div');
+    face.className = 'compass-face';
+
+    this._dial = document.createElement('div');
+    this._dial.className = 'compass-dial';
+
+    this._labels = COMPASS_DIRECTIONS.map(({ label, bearing, name, cls }) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `compass-btn ${cls}`;
+      btn.setAttribute('aria-label', `Face ${name}`);
+
+      const span = document.createElement('span');
+      span.className = 'compass-btn-label';
+      span.textContent = label;
+      btn.append(span);
+
+      btn.addEventListener('click', () => map.easeTo({ bearing }));
+
+      this._dial.append(btn);
+      return span;
     });
 
-    this._container.querySelector('.legend-checkbox[data-pref="autoHeight"]').addEventListener('change', (e) => {
-      autoHeightEnabled = e.target.checked;
-    });
+    face.append(this._dial);
+
+    // Live heading readout below the dial — shows/hides together with the
+    // rest of the compass since it's just another child of this._container,
+    // the same element setVisible() toggles.
+    this._headingEl = document.createElement('div');
+    this._headingEl.className = 'compass-heading';
+
+    this._container.append(face, this._headingEl);
+
+    map.on('rotate', () => this._sync());
+    this._sync();
 
     return this._container;
   }
@@ -131,19 +218,38 @@ class LegendControl {
     this._container.remove();
     this._map = undefined;
   }
+
+  setVisible(visible) {
+    this._container.style.display = visible ? '' : 'none';
+  }
+
+  _sync() {
+    const bearing = this._map.getBearing();
+    this._dial.style.transform = `rotate(${-bearing}deg)`;
+    this._labels.forEach((span) => {
+      span.style.transform = `rotate(${bearing}deg)`;
+    });
+    // Mapbox's bearing isn't clamped to 0-359 during interaction (it can
+    // go negative or past 360 while dragging) — normalize for display.
+    const heading = Math.round(((bearing % 360) + 360) % 360);
+    this._headingEl.textContent = `${heading}°`;
+  }
 }
 
-export function createMap(containerId, { token, style, center }) {
+export function createMap(containerId, { token, style, center, zoom = 15, pitch = 0, bearing = 0 }) {
   mapboxgl.accessToken = token;
 
   const map = new mapboxgl.Map({
     container: containerId,
     style,
     center: [center.lon, center.lat],
-    zoom: 15,
+    zoom,
+    pitch,
+    bearing,
   });
-  map.addControl(new LegendControl(), 'top-left');
-  map.addControl(new ViewModeControl(), 'bottom-right');
+  const compass = new CompassControl();
+  map.addControl(new MapControlsPanel({ onToggleCompass: (visible) => compass.setVisible(visible) }), 'bottom-right');
+  map.addControl(compass, 'top-right');
   map.addControl(new mapboxgl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-left');
 
   const ready = new Promise((resolve) => map.on('load', resolve));
@@ -167,11 +273,9 @@ export function addLandmarkMarker(map, lonlat, onDragEnd) {
 // as you pan/zoom — unlike buildings below, which cost nothing extra).
 // Standard renders 3D buildings natively, so there's no custom layer to add
 // here anymore (a hand-rolled fill-extrusion layer, like Moonshot used on
-// the classic dark-v11 style, would just double them up). 'night' is set
-// as the default lightPreset since the style's own default reads far
-// lighter/whiter than fits the app's dark theme — 'theme' (default/faded/
-// monochrome) is another available lever if 'night' alone isn't enough.
-// Call once, after the map's 'load' event.
+// the classic dark-v11 style, would just double them up). Doesn't touch
+// lightPreset — that's driven by the site-wide theme toggle, see
+// setMapTheme below. Call once, after the map's 'load' event.
 export function addBuildingsAndTerrain(map) {
   map.addSource(TERRAIN_SOURCE_ID, {
     type: 'raster-dem',
@@ -180,12 +284,25 @@ export function addBuildingsAndTerrain(map) {
     maxzoom: 14,
   });
   map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1.0 });
-  map.setConfigProperty('basemap', 'lightPreset', 'night');
+  // Labels off by default (matches the legend checkbox's unchecked initial
+  // state above) — the owner opts back in via the "Labels" toggle rather
+  // than starting from Standard's own labels-on default.
+  LABEL_CONFIG_PROPERTIES.forEach((prop) => map.setConfigProperty('basemap', prop, false));
+}
+
+// Follows the site-wide light/dark theme toggle: Standard's own lightPreset
+// config is the lever for the basemap's actual color scheme (its default
+// reads far lighter/whiter than either of the app's own themes want).
+// 'theme' (default/faded/monochrome) is another available lever if
+// lightPreset alone ever isn't enough. Call once after 'load', and again
+// on every theme toggle.
+export function setMapTheme(map, theme) {
+  map.setConfigProperty('basemap', 'lightPreset', theme === 'light' ? 'day' : 'night');
 }
 
 // Fires on every map click with the clicked lng/lat, plus that spot's real
 // building height in meters if a building was actually clicked AND the
-// "Set height automatically" legend toggle is on — null otherwise (either
+// "Auto-set height" legend toggle is on — null otherwise (either
 // no building was under the click, or the toggle is off). Standard's native
 // buildings aren't queryable via the classic queryRenderedFeatures (no
 // stable layer id to target), so this uses the newer Interactions/Featureset
@@ -470,9 +587,6 @@ export function renderAlignmentPath(map, points) {
   wireHover(map);
 }
 
-export function clearAlignmentPath(map) {
-  renderAlignmentPath(map, []);
-}
 
 const METERS_PER_DEG_LAT = 111320;
 
