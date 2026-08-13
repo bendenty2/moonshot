@@ -2,7 +2,7 @@
 // local-time Date construction throughout (never ISO-string parsing) to avoid
 // timezone off-by-one bugs.
 
-import { onOutsideClick } from './dom.js?v=1.3.1';
+import { onOutsideClick } from './dom.js?v=1.3.2';
 
 const WEEKDAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const MONTH_LABELS = [
