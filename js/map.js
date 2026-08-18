@@ -2,7 +2,7 @@
 // alignment path rendering, and forward geocoding search.
 // Relies on the global `mapboxgl` (loaded via CDN <script> in index.html).
 
-import { DEG, RAD } from './config.js?v=1.3.2';
+import { DEG, RAD, OBSERVER_EYE_HEIGHT_M, OCCLUSION_SAMPLES } from './config.js?v=1.3.3';
 
 const PATH_SOURCE_ID = 'alignment-path';
 const ARROWS_SOURCE_ID = 'alignment-arrows';
@@ -28,18 +28,29 @@ const LABEL_CONFIG_PROPERTIES = [
   'showTransitLabels',
 ];
 
-// The path's own sample points for the segment currently under the mouse,
-// kept in module scope so the hover handler (wired once) always reads
-// whatever was most recently rendered.
-let currentPoints = [];
-let tooltipEl = null;
+// Per-map-instance mutable state (auto-height toggle, occlusion toggle,
+// the path's own sample points for whichever segment is currently under
+// the mouse, the hover tooltip element) — keyed by the actual Map
+// instance so two independent maps (Moon Alignment and Sun Alignment each
+// get their own via createMap()) never leak state through what used to be
+// plain module-level variables shared by whichever map called in last.
+const instanceState = new WeakMap();
 
-// Whether a building click should auto-fill the target-height slider with
-// that building's real height — the "Auto-set height" legend toggle
-// below. Off by default: the target height now just starts at
-// DEFAULT_TARGET_HEIGHT_FT and only otherwise changes via a favourite or a
-// manual edit, unless the owner opts back into the old auto-fill behavior.
-let autoHeightEnabled = false;
+function getState(map) {
+  let state = instanceState.get(map);
+  if (!state) {
+    state = { autoHeightEnabled: false, occlusionEnabled: false, currentPoints: [], tooltipEl: null };
+    instanceState.set(map, state);
+  }
+  return state;
+}
+
+// Read by main.js to decide whether to pass makeOcclusionCheck's result
+// into computeAlignmentPath at all — the toggle itself lives in
+// MapControlsPanel's checkbox, private to this module.
+export function isOcclusionEnabled(map) {
+  return getState(map).occlusionEnabled;
+}
 
 // Bottom-right control panel: the Standard-style basemap-text toggle (see
 // LABEL_CONFIG_PROPERTIES above), the app-level "set height automatically"
@@ -74,6 +85,13 @@ class MapControlsPanel {
       </label>
       <label class="legend-row">
         <span class="legend-toggle">
+          <input type="checkbox" class="legend-checkbox" data-pref="occlusion" />
+          <span class="legend-slider"></span>
+        </span>
+        <span class="legend-label">Check occlusion</span>
+      </label>
+      <label class="legend-row">
+        <span class="legend-toggle">
           <input type="checkbox" class="legend-checkbox" data-pref="showCompass" checked />
           <span class="legend-slider"></span>
         </span>
@@ -86,7 +104,13 @@ class MapControlsPanel {
     });
 
     this._container.querySelector('.legend-checkbox[data-pref="autoHeight"]').addEventListener('change', (e) => {
-      autoHeightEnabled = e.target.checked;
+      getState(map).autoHeightEnabled = e.target.checked;
+    });
+
+    // Off by default — see OCCLUSION_SAMPLES's comment in config.js for why
+    // this is opt-in rather than always-on (real per-recompute cost).
+    this._container.querySelector('.legend-checkbox[data-pref="occlusion"]').addEventListener('change', (e) => {
+      getState(map).occlusionEnabled = e.target.checked;
     });
 
     this._container.querySelector('.legend-checkbox[data-pref="showCompass"]').addEventListener('change', (e) => {
@@ -256,8 +280,8 @@ export function createMap(containerId, { token, style, center, zoom = 15, pitch 
   return { map, ready };
 }
 
-export function addLandmarkMarker(map, lonlat, onDragEnd) {
-  const marker = new mapboxgl.Marker({ color: '#2d4a9e', draggable: true })
+export function addLandmarkMarker(map, lonlat, onDragEnd, color = '#2d4a9e') {
+  const marker = new mapboxgl.Marker({ color, draggable: true })
     .setLngLat([lonlat.lon, lonlat.lat])
     .addTo(map);
 
@@ -332,9 +356,69 @@ export function onMapClick(map, handler) {
     setTimeout(() => {
       const buildingHeightM = pendingBuildingHeight;
       pendingBuildingHeight = null;
-      handler({ lat, lon: lng, buildingHeightM: autoHeightEnabled ? buildingHeightM : null });
+      handler({ lat, lon: lng, buildingHeightM: getState(map).autoHeightEnabled ? buildingHeightM : null });
     }, 0);
   });
+}
+
+// ----- occlusion -----
+//
+// Checks whether terrain or a building blocks the straight sightline from
+// a candidate observer point's eye level up to the virtual target point at
+// the landmark. Returns a per-candidate predicate (rather than doing the
+// landmark-side setup work — its own ground elevation — on every call) for
+// use as alignment.js's computeAlignmentPath `occlusionCheck` option.
+//
+// The sightline's height is modeled as a straight line from the observer's
+// eye (OBSERVER_EYE_HEIGHT_M above THEIR local ground) to the target point
+// (targetHeightM above the LANDMARK's local ground) — i.e. this adds a
+// real-elevation-aware occlusion check on top of the existing flat/sea-
+// level geometry that solves for *where* each candidate point is (see
+// alignment.js's own module comment on that scope decision); it doesn't
+// change that solve, just filters its results afterward.
+//
+// Terrain: map.queryTerrainElevation() is geographic (not limited to the
+// current on-screen viewport), so this works regardless of where the
+// candidate is relative to what's currently in view.
+// Buildings: map.queryRenderedFeatures() against the Standard style's
+// 'buildings' featureset only works in screen-pixel space, so a sample
+// off-screen right now simply can't be checked for a building there —
+// skipped, not assumed clear. Pan/zoom over the area you want checked.
+export function makeOcclusionCheck(map, landmark, targetHeightM) {
+  const landmarkGroundM = map.queryTerrainElevation([landmark.lon, landmark.lat]) ?? 0;
+  const targetAbsM = landmarkGroundM + targetHeightM;
+  const canvas = map.getCanvas();
+
+  return (candidate) => {
+    const observerGroundM = map.queryTerrainElevation([candidate.lon, candidate.lat]) ?? 0;
+    const eyeAbsM = observerGroundM + OBSERVER_EYE_HEIGHT_M;
+
+    for (let i = 1; i < OCCLUSION_SAMPLES; i++) {
+      const f = i / OCCLUSION_SAMPLES; // 0 at the observer, 1 at the landmark
+      const sampleLon = candidate.lon + (landmark.lon - candidate.lon) * f;
+      const sampleLat = candidate.lat + (landmark.lat - candidate.lat) * f;
+      const sightlineM = eyeAbsM + (targetAbsM - eyeAbsM) * f;
+
+      const groundM = map.queryTerrainElevation([sampleLon, sampleLat]);
+      if (groundM != null && groundM > sightlineM) return true; // terrain pokes above the sightline
+
+      let buildingHeightM = 0;
+      try {
+        const point = map.project([sampleLon, sampleLat]);
+        const inView = point.x >= 0 && point.y >= 0 && point.x <= canvas.clientWidth && point.y <= canvas.clientHeight;
+        if (inView) {
+          const features = map.queryRenderedFeatures(point, { target: { featuresetId: 'buildings', importId: 'basemap' } });
+          buildingHeightM = features.reduce((max, f) => Math.max(max, f.properties?.height ?? 0), 0);
+        }
+      } catch {
+        // Building featureset querying unsupported on this Mapbox GL JS
+        // version/style — skip this sample's building check rather than
+        // failing the whole occlusion check.
+      }
+      if ((groundM ?? observerGroundM) + buildingHeightM > sightlineM) return true; // building pokes above the sightline
+    }
+    return false;
+  };
 }
 
 function formatTooltipTime(date) {
@@ -464,24 +548,28 @@ function interpolateAt(points, i, t) {
   return {
     time: new Date(a.time.getTime() + (b.time.getTime() - a.time.getTime()) * t),
     distanceM: a.distanceM + (b.distanceM - a.distanceM) * t,
-    moonAltitude: a.moonAltitude + (b.moonAltitude - a.moonAltitude) * t,
+    altitude: a.altitude + (b.altitude - a.altitude) * t,
   };
 }
 
 function ensureTooltip(map) {
-  if (tooltipEl) return tooltipEl;
-  tooltipEl = document.createElement('div');
-  tooltipEl.className = 'path-hover-tooltip';
-  map.getContainer().appendChild(tooltipEl);
-  return tooltipEl;
+  const state = getState(map);
+  if (state.tooltipEl) return state.tooltipEl;
+  state.tooltipEl = document.createElement('div');
+  state.tooltipEl.className = 'path-hover-tooltip';
+  map.getContainer().appendChild(state.tooltipEl);
+  return state.tooltipEl;
 }
 
-function wireHover(map) {
+// bodyLabel ("Moon"/"Sun") only affects the hover tooltip's wording —
+// wired once per map instance, at the first renderAlignmentPath() call.
+function wireHover(map, bodyLabel) {
   map.on('mouseenter', HIT_LAYER_ID, () => {
     map.getCanvas().style.cursor = 'crosshair';
   });
 
   map.on('mousemove', HIT_LAYER_ID, (e) => {
+    const currentPoints = getState(map).currentPoints;
     if (currentPoints.length < 2) return;
     const best = closestPointOnPath(currentPoints, e.lngLat.lng, e.lngLat.lat);
     if (!best) return;
@@ -491,18 +579,25 @@ function wireHover(map) {
     tip.style.display = 'block';
     tip.style.left = `${e.point.x}px`;
     tip.style.top = `${e.point.y}px`;
-    tip.innerHTML = `<strong>${formatTooltipTime(info.time)}</strong><br>${Math.round(info.distanceM).toLocaleString()} m away · moon alt ${info.moonAltitude.toFixed(1)}°`;
+    tip.innerHTML = `<strong>${formatTooltipTime(info.time)}</strong><br>${Math.round(info.distanceM).toLocaleString()} m away · ${bodyLabel.toLowerCase()} alt ${info.altitude.toFixed(1)}°`;
   });
 
   map.on('mouseleave', HIT_LAYER_ID, () => {
     map.getCanvas().style.cursor = '';
+    const tooltipEl = getState(map).tooltipEl;
     if (tooltipEl) tooltipEl.style.display = 'none';
   });
 }
 
-// Adds the path/arrow/timestamp layers on first call, updates their data on later calls.
-export function renderAlignmentPath(map, points) {
-  currentPoints = points;
+// Adds the path/arrow/timestamp layers on first call, updates their data on
+// later calls. `result` is computeAlignmentPath()'s {points, reason}
+// return value directly. `lineColor` distinguishes Moon (blue, default) vs
+// Sun (amber) Alignment's path/arrows since they're two separate map
+// instances that could otherwise look identical. See renderPathMessage
+// below for how `reason` surfaces to the user when points is empty.
+export function renderAlignmentPath(map, { points, reason }, { bodyLabel = 'Moon', lineColor = '#2d4a9e', maxDistanceKm } = {}) {
+  getState(map).currentPoints = points;
+  renderPathMessage(map, reason, { bodyLabel, maxDistanceKm });
   const lineData = pathToGeoJSON(points);
   const arrowData = arrowsToGeoJSON(points);
   const timestampData = timestampLabelsToGeoJSON(points);
@@ -537,7 +632,7 @@ export function renderAlignmentPath(map, points) {
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
       'line-width': 2,
-      'line-color': '#2d4a9e',
+      'line-color': lineColor,
     },
   });
 
@@ -584,9 +679,37 @@ export function renderAlignmentPath(map, points) {
     },
   });
 
-  wireHover(map);
+  wireHover(map, bodyLabel);
 }
 
+// Shown/hidden over the map to explain *why* the path is empty, rather
+// than just silently rendering nothing — see computeAlignmentPath's
+// `reason` values in alignment.js for what each of these corresponds to.
+const PATH_MESSAGE_TEXT = {
+  'below-horizon': (bodyLabel) =>
+    `The ${bodyLabel.toLowerCase()} stays below the horizon for this entire time window — try a different date or time mode.`,
+  'too-far': (bodyLabel, maxDistanceKm) =>
+    `No valid alignment point within ${maxDistanceKm} km — try increasing the max distance or lowering the target height.`,
+  occluded: () =>
+    'Every valid point is blocked by terrain or a building — try increasing the max distance, adjusting the target height, or turning off occlusion checking.',
+  unknown: () => 'No alignment path could be computed for this time window.',
+};
+
+function renderPathMessage(map, reason, { bodyLabel, maxDistanceKm }) {
+  const state = getState(map);
+  if (!state.messageEl) {
+    state.messageEl = document.createElement('div');
+    state.messageEl.className = 'path-message';
+    map.getContainer().appendChild(state.messageEl);
+  }
+  if (!reason) {
+    state.messageEl.hidden = true;
+    return;
+  }
+  const textFn = PATH_MESSAGE_TEXT[reason] || PATH_MESSAGE_TEXT.unknown;
+  state.messageEl.textContent = textFn(bodyLabel, maxDistanceKm);
+  state.messageEl.hidden = false;
+}
 
 const METERS_PER_DEG_LAT = 111320;
 
@@ -612,7 +735,7 @@ function pillarFootprint(landmark, radiusM = 1.5) {
 // thin vertical pillar from the ground up to the target height reads as
 // "the virtual point is right here, this high up" once the map is tilted
 // into 3D — at pitch 0 it's invisible-by-design (just its flat footprint).
-export function renderVirtualPoint(map, landmark, heightM) {
+export function renderVirtualPoint(map, landmark, heightM, color = '#2d4a9e') {
   const data = {
     type: 'FeatureCollection',
     features: [
@@ -636,7 +759,7 @@ export function renderVirtualPoint(map, landmark, heightM) {
     type: 'fill-extrusion',
     source: VIRTUAL_POINT_SOURCE_ID,
     paint: {
-      'fill-extrusion-color': '#2d4a9e',
+      'fill-extrusion-color': color,
       'fill-extrusion-height': ['get', 'height'],
       'fill-extrusion-base': 0,
       'fill-extrusion-opacity': 0.9,

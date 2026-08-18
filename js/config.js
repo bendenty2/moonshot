@@ -64,6 +64,20 @@ export const MAX_DISTANCE_RANGE = { min: 0, max: 10, step: 0.1 };
 // Sampling step for walking the alignment path across the search window.
 export const PATH_STEP_MINUTES = 2;
 
+// Occlusion checking (terrain + buildings) for the alignment path — see
+// makeOcclusionCheck in map.js. Off by default (opt-in legend toggle):
+// it's a real per-candidate-point cost (a handful of synchronous Mapbox
+// queries per sample), which is fine for an explicit recompute but would
+// make live slider dragging feel laggy if it ran unconditionally.
+// Terrain uses Mapbox's queryTerrainElevation (works anywhere
+// geographically); building checks additionally require the sample point
+// to currently be on-screen (Mapbox's Standard-style building featureset
+// can only be queried in screen-pixel space, not by arbitrary geographic
+// coordinate) — a real v1 limitation, not a bug: pan/zoom over the area
+// you want checked.
+export const OBSERVER_EYE_HEIGHT_M = 1.6; // typical human eye height above the ground they're standing on
+export const OCCLUSION_SAMPLES = 6; // points sampled along each candidate's sightline to the landmark
+
 // The moon info panel (phase/illumination/rise-set/azimuth/altitude/current
 // time) recomputes on this interval (ms). Astronomy Engine's calculations
 // are cheap (a handful of calls, sub-10ms total), so a 1s tick costs nothing

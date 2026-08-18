@@ -803,6 +803,32 @@ body {
   white-space: nowrap;
 }
 
+/* Explains *why* the alignment path is empty (moon/sun below the horizon
+   all window, no valid point within range, everything occluded) instead
+   of just silently showing nothing — see renderPathMessage in map.js. */
+.path-message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 30;
+  max-width: min(360px, 80%);
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.path-message[hidden] {
+  display: none;
+}
+
 /* ===== Map 2D/3D view control =====
    A rounded pill (two equal-width segments) rather than Mapbox's usual
    square stacked-button control group — reads softer, and the fully-round

@@ -21,7 +21,7 @@
   </script>
 
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.28.0/mapbox-gl.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=1.3.2" />
+  <link rel="stylesheet" href="css/styles.css?v=1.3.3" />
   <!-- Self-hosted DM Sans (see @font-face in styles.css). Preload the primary
        latin file so text paints in the real face without a Google round-trip. -->
   <link rel="preload" href="fonts/dmsans-latin.woff2" as="font" type="font/woff2" crossorigin />
@@ -32,6 +32,7 @@
     <span class="topbar-brand">Moonshot</span>
     <nav class="topbar-tabs" aria-label="Tools">
       <button type="button" class="topbar-tab is-active" data-view="alignment">Moon Alignment</button>
+      <button type="button" class="topbar-tab" data-view="sun-alignment">Sun Alignment</button>
       <button type="button" class="topbar-tab" data-view="pov-arc">POV Arc</button>
     </nav>
     <div id="theme-toggle" class="view-mode-control theme-toggle" role="group" aria-label="Color theme">
@@ -101,17 +102,77 @@
     </main>
   </div>
 
+  <div id="view-sun-alignment" class="view">
+    <div class="controlbar">
+      <div class="controlbar-group controlbar-search">
+        <input id="sun-location-search" type="text" placeholder="Search for a landmark or enter an address…" autocomplete="off" />
+        <ul id="sun-search-results" class="search-results" hidden></ul>
+      </div>
+
+      <div class="controlbar-group controlbar-slider">
+        <label for="sun-target-height-slider">Target height</label>
+        <input id="sun-target-height-slider" type="range" min="0" max="2000" step="10" />
+        <input id="sun-target-height" type="number" min="0" step="10" class="slider-value-input" />
+        <button id="sun-height-unit" class="unit-toggle" type="button">ft</button>
+      </div>
+
+      <div class="controlbar-group controlbar-slider">
+        <label for="sun-max-distance-slider">Max distance</label>
+        <input id="sun-max-distance-slider" type="range" min="0" max="10" step="0.1" />
+        <input id="sun-max-distance" type="number" min="0.1" step="0.5" class="slider-value-input" />
+        <span class="unit">km</span>
+      </div>
+
+      <div class="controlbar-group controlbar-time">
+        <button id="sun-time-now" class="time-btn is-active" type="button">Next Sunrise</button>
+        <button id="sun-time-special" class="time-btn" type="button">Next Solstice</button>
+        <div class="date-picker">
+          <button id="sun-time-custom-btn" class="time-btn" type="button">Custom Date</button>
+          <div id="sun-date-picker-popover" class="date-picker-popover" hidden>
+            <div class="date-picker-header">
+              <button type="button" class="date-nav" data-nav="prev-year" aria-label="Previous year">&laquo;</button>
+              <button type="button" class="date-nav" data-nav="prev-month" aria-label="Previous month">&lsaquo;</button>
+              <span id="sun-date-picker-label" class="date-picker-label"></span>
+              <button type="button" class="date-nav" data-nav="next-month" aria-label="Next month">&rsaquo;</button>
+              <button type="button" class="date-nav" data-nav="next-year" aria-label="Next year">&raquo;</button>
+            </div>
+            <div id="sun-date-picker-weekdays" class="date-picker-weekdays"></div>
+            <div id="sun-date-picker-days" class="date-picker-days"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <main class="layout">
+      <aside class="sidebar-pane" aria-label="Tools">
+        <div class="sidebar-section">
+          <div class="sidebar-section-header">
+            <h3 class="sidebar-section-title">Favourites</h3>
+            <button id="sun-favourite-star-btn" class="favourite-star-btn" type="button" aria-label="Save current location as favourite" title="Save current location as favourite">&#9734;</button>
+          </div>
+          <ul id="sun-favourites-list" class="favourites-list"></ul>
+        </div>
+      </aside>
+      <div class="pane-resizer" id="sun-sidebar-resizer" role="separator" aria-orientation="vertical" aria-label="Resize sidebar"></div>
+      <div id="sun-map" class="map-pane" aria-label="Sun alignment map"></div>
+      <div class="pane-resizer" id="sun-panel-resizer" role="separator" aria-orientation="vertical" aria-label="Resize sun information panel"></div>
+      <aside class="panel-pane" aria-label="Sun information">
+        <div id="sun-panel"></div>
+      </aside>
+    </main>
+  </div>
+
   <div id="view-pov-arc" class="view">
     <p class="view-placeholder">POV Arc — coming soon.</p>
   </div>
 
   <footer class="site-footer">
-    <span class="footer-version">v1.3.2</span>
+    <span class="footer-version">v1.3.3</span>
     <small>&copy; <span id="footer-year">2026</span> Benjamin d'Entremont. All rights reserved.</small>
   </footer>
 
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.28.0/mapbox-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
-  <script type="module" src="js/main.js?v=1.3.2"></script>
+  <script type="module" src="js/main.js?v=1.3.3"></script>
 </body>
 </html>

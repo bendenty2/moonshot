@@ -1,11 +1,17 @@
 // Bookmarked location + target-height pairs, persisted to localStorage.
 // A "favourite" is: { id, name, lat, lon, heightValue, heightUnit }.
+//
+// `storageKey` is threaded through every function rather than hardcoded,
+// so Moon Alignment and Sun Alignment (two independent callers of this
+// module) can keep separate favourites lists — a good height for a moon
+// shot and a good height for a sun shot at the same landmark aren't
+// necessarily the same value, so sharing one list would mean picking a
+// favourite in one mode silently overwrites intent for the other.
+const DEFAULT_STORAGE_KEY = 'moonshot.favourites';
 
-const STORAGE_KEY = 'moonshot.favourites';
-
-export function loadFavourites() {
+export function loadFavourites(storageKey = DEFAULT_STORAGE_KEY) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed : [];
   } catch {
@@ -13,29 +19,29 @@ export function loadFavourites() {
   }
 }
 
-function saveFavourites(list) {
+function saveFavourites(list, storageKey) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    localStorage.setItem(storageKey, JSON.stringify(list));
   } catch {
     // Storage unavailable (private browsing, quota, etc.) — favourites just won't persist.
   }
 }
 
-export function addFavourite(list, fav) {
+export function addFavourite(list, fav, storageKey = DEFAULT_STORAGE_KEY) {
   const next = [...list, { id: crypto.randomUUID(), ...fav }];
-  saveFavourites(next);
+  saveFavourites(next, storageKey);
   return next;
 }
 
-export function updateFavourite(list, id, updates) {
+export function updateFavourite(list, id, updates, storageKey = DEFAULT_STORAGE_KEY) {
   const next = list.map((f) => (f.id === id ? { ...f, ...updates } : f));
-  saveFavourites(next);
+  saveFavourites(next, storageKey);
   return next;
 }
 
-export function removeFavourite(list, id) {
+export function removeFavourite(list, id, storageKey = DEFAULT_STORAGE_KEY) {
   const next = list.filter((f) => f.id !== id);
-  saveFavourites(next);
+  saveFavourites(next, storageKey);
   return next;
 }
 
